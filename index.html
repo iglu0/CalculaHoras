@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CalculaHoras — Recargos por Turno</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0d1117;
+  --surf1:    #161b22;
+  --surf2:    #1c2230;
+  --surf3:    #222b3a;
+  --border:   #2a3548;
+  --border2:  #334060;
+  --text:     #e2e8f8;
+  --muted:    #5a6a8a;
+  --muted2:   #8094b8;
+  --blue:     #4f8ef7;
+  --green:    #3dd68c;
+  --yellow:   #f5c542;
+  --purple:   #a78bfa;
+  --red:      #f87171;
+  --deepred:  #ef4444;
+  --mono:     'IBM Plex Mono', monospace;
+  --sans:     'Inter', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  padding: 0 0 5rem;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  background: var(--surf1);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.topbar-logo {
+  font-family: var(--mono);
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--blue);
+  letter-spacing: .05em;
+}
+.topbar-sep { color: var(--border2); }
+.topbar-sub {
+  font-size: .78rem;
+  color: var(--muted2);
+  font-weight: 400;
+}
+
+/* ── LAYOUT ── */
+.wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .85rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf2);
+}
+.card-head-icon {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+.card-head-title {
+  font-family: var(--mono);
+  font-size: .7rem;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+.card-body { padding: 1.2rem; }
+
+/* ── PERIOD SELECTOR ── */
+.period-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 1rem;
+  align-items: end;
+}
+.field { display: flex; flex-direction: column; gap: .4rem; }
+.field label {
+  font-size: .75rem;
+  font-weight: 500;
+  color: var(--muted2);
+  letter-spacing: .04em;
+}
+select, input[type="time"] {
+  background: var(--surf3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: .88rem;
+  padding: .55rem .75rem;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+select:focus, input[type="time"]:focus { border-color: var(--blue); }
+select option { background: var(--surf3); }
+
+.period-display {
+  background: var(--surf3);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: .5rem .9rem;
+  font-family: var(--mono);
+  font-size: .82rem;
+  color: var(--blue);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.period-dot { color: var(--muted); }
+
+.btn {
+  padding: .55rem 1.2rem;
+  background: var(--blue);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: .85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .15s, transform .1s;
+  align-self: flex-end;
+}
+.btn:hover { opacity: .85; }
+.btn:active { transform: scale(.97); }
+.btn-sm {
+  padding: .35rem .75rem;
+  font-size: .78rem;
+  border-radius: 6px;
+}
+
+/* ── DAYS TABLE ── */
+#daysSection { display: none; }
+
+.days-header {
+  display: grid;
+  grid-template-columns: 90px 130px 100px 100px 50px 1fr;
+  gap: .5rem;
+  padding: .6rem 1rem;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--border);
+}
+.days-header span {
+  font-family: var(--mono);
+  font-size: .65rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.day-row {
+  display: grid;
+  grid-template-columns: 90px 130px 100px 100px 50px 1fr;
+  gap: .5rem;
+  padding: .55rem 1rem;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  transition: background .1s;
+}
+.day-row:last-child { border-bottom: none; }
+.day-row:hover { background: rgba(79,142,247,.04); }
+
+.day-date {
+  font-family: var(--mono);
+  font-size: .8rem;
+  color: var(--text);
+  font-weight: 500;
+}
+.day-name {
+  font-size: .75rem;
+  color: var(--muted2);
+}
+.day-weekend .day-date,
+.day-weekend .day-name { color: var(--yellow); }
+.day-sunday .day-date,
+.day-sunday .day-name { color: var(--red); }
+
+.day-row select {
+  font-size: .78rem;
+  padding: .35rem .5rem;
+  border-radius: 6px;
+}
+.day-row input[type="time"] {
+  font-size: .78rem;
+  padding: .35rem .4rem;
+  border-radius: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.day-result {
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--muted2);
+  line-height: 1.5;
+}
+.day-result .r-normal { color: var(--green); }
+.day-result .r-40 { color: var(--blue); }
+.day-result .r-50 { color: var(--yellow); }
+.day-result .r-60 { color: var(--purple); }
+.day-result .r-150 { color: var(--red); }
+.day-result .r-200 { color: var(--deepred); }
+.day-result .r-empty { color: var(--muted); font-style: italic; }
+
+/* ── SUMMARY ── */
+#summarySection { display: none; }
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: .8rem;
+}
+.summary-item {
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+.summary-item-label {
+  font-size: .72rem;
+  color: var(--muted2);
+  font-weight: 500;
+  letter-spacing: .03em;
+}
+.summary-item-value {
+  font-family: var(--mono);
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.summary-item-sub {
+  font-family: var(--mono);
+  font-size: .65rem;
+  color: var(--muted);
+}
+.s-normal  .summary-item-value { color: var(--green); }
+.s-total   .summary-item-value { color: var(--blue); }
+.s-40      .summary-item-value { color: var(--blue); }
+.s-50      .summary-item-value { color: var(--yellow); }
+.s-60      .summary-item-value { color: var(--purple); }
+.s-150     .summary-item-value { color: var(--red); }
+.s-200     .summary-item-value { color: var(--deepred); }
+
+.summary-divider {
+  height: 1px;
+  background: var(--border);
+  margin: .8rem 0;
+}
+
+.liquidacion-note {
+  background: rgba(79,142,247,.08);
+  border: 1px solid rgba(79,142,247,.2);
+  border-radius: 8px;
+  padding: .7rem 1rem;
+  font-size: .78rem;
+  color: var(--muted2);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .8rem;
+}
+.liquidacion-note strong { color: var(--blue); }
+
+/* ── ACTIONS BAR ── */
+.actions-bar {
+  display: flex;
+  gap: .8rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 1rem 1.2rem;
+  background: var(--surf2);
+  border-top: 1px solid var(--border);
+}
+.actions-label {
+  font-size: .78rem;
+  color: var(--muted2);
+  flex: 1;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 700px) {
+  .period-grid { grid-template-columns: 1fr 1fr; }
+  .period-grid .btn { grid-column: 1 / -1; }
+  .days-header { display: none; }
+  .day-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    padding: .8rem 1rem;
+    gap: .4rem;
+  }
+  .day-date { grid-column: 1; }
+  .day-name { grid-column: 2; text-align: right; }
+  .day-row select { grid-column: 1 / -1; }
+  .day-row input[type="time"] { }
+  .day-result { grid-column: 1 / -1; }
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-logo">CalculaHoras</span>
+  <span class="topbar-sep">·</span>
+  <span class="topbar-sub">Calculadora de recargos por turno</span>
+</div>
+
+<div class="wrapper">
+
+  <!-- PERÍODO -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon"></div>
+      <span class="card-head-title">Período de pago</span>
+    </div>
+    <div class="card-body">
+      <div class="period-grid">
+        <div class="field">
+          <label>Mes inicio (día 16)</label>
+          <select id="monthFrom">
+            <option value="0">Enero</option><option value="1">Febrero</option>
+            <option value="2">Marzo</option><option value="3">Abril</option>
+            <option value="4">Mayo</option><option value="5">Junio</option>
+            <option value="6">Julio</option><option value="7">Agosto</option>
+            <option value="8">Septiembre</option><option value="9">Octubre</option>
+            <option value="10">Noviembre</option><option value="11">Diciembre</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Año</label>
+          <select id="yearFrom"></select>
+        </div>
+        <button class="btn" onclick="buildPeriod()">Generar período →</button>
+      </div>
+      <div id="periodDisplay" style="margin-top:.9rem;display:none">
+        <div class="period-display">
+          <span id="periodFrom">—</span>
+          <span class="period-dot">→</span>
+          <span id="periodTo">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DÍAS -->
+  <div class="card" id="daysSection">
+    <div class="card-head">
+      <div class="card-head-icon" style="background:var(--green)"></div>
+      <span class="card-head-title">Registro diario de turnos</span>
+    </div>
+    <div class="days-header">
+      <span>Fecha</span>
+      <span>Tipo de día</span>
+      <span>Entrada</span>
+      <span style="text-align:center">Salida</span>
+      <span></span>
+      <span>Resultado</span>
+    </div>
+    <div id="daysList"></div>
+    <div class="actions-bar">
+      <span class="actions-label">Ingresa los horarios de cada turno trabajado</span>
+      <button class="btn btn-sm" onclick="calcularTodo()" style="background:var(--green);color:#0d1117">Calcular todo →</button>
+    </div>
+  </div>
+
+  <!-- RESUMEN -->
+  <div class="card" id="summarySection">
+    <div class="card-head">
+      <div class="card-head-icon" style="background:var(--yellow)"></div>
+      <span class="card-head-title">Resumen del período</span>
+    </div>
+    <div class="card-body">
+      <div class="summary-grid" id="summaryGrid"></div>
+      <div class="liquidacion-note">
+        💡 Estos valores en formato <strong>decimal con coma</strong> coinciden con el desglose de tu liquidación de sueldo.
+      </div>
+      <div style="margin-top:1rem;display:flex;justify-content:flex-end;">
+        <button class="btn" onclick="exportarExcel()" style="background:var(--green);color:#0d1117;display:flex;align-items:center;gap:.5rem;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar a Excel
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── CONSTANTES ───────────────────────────────────────────────────────────
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+               'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const DIAS_ABREV  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+function toMin(h, m) { return h * 60 + m; }
+function parseTime(str) {
+  if (!str) return null;
+  const [h, m] = str.split(':').map(Number);
+  return toMin(h, m);
+}
+function fmtDec(mins) {
+  return (mins / 60).toFixed(2).replace('.', ',');
+}
+
+// ── TRAMOS DE RECARGO ────────────────────────────────────────────────────
+const TRAMOS = {
+  weekday: [
+    { start: toMin(0,0),  end: toMin(5,0),   pct: 50 },
+    { start: toMin(5,1),  end: toMin(7,0),   pct: 40 },
+    { start: toMin(7,1),  end: toMin(20,59), pct: 0  },
+    { start: toMin(21,0), end: toMin(23,59), pct: 40 },
+  ],
+  saturday: [
+    { start: toMin(0,0),  end: toMin(7,0),   pct: 0  },
+    { start: toMin(7,1),  end: toMin(20,59), pct: 40 },
+    { start: toMin(21,0), end: toMin(23,59), pct: 0  },
+  ],
+  sunday: [
+    { start: toMin(0,0),  end: toMin(23,59), pct: 50 },
+  ],
+  night: [
+    { start: toMin(0,0),  end: toMin(23,59), pct: 60 },
+  ],
+  holiday: [
+    { start: toMin(0,0),  end: toMin(23,59), pct: 150 },
+  ],
+  holiday_mandatory: [
+    { start: toMin(0,0),  end: toMin(23,59), pct: 200 },
+  ],
+};
+
+const TIPO_OPTIONS = [
+  { value: 'weekday',           label: 'Lunes – Viernes' },
+  { value: 'saturday',          label: 'Sábado' },
+  { value: 'sunday',            label: 'Domingo' },
+  { value: 'night',             label: 'Turno Noche' },
+  { value: 'holiday',           label: 'Feriado' },
+  { value: 'holiday_mandatory', label: 'Feriado Irrenunciable' },
+];
+
+function defaultTipo(date) {
+  const dow = date.getDay(); // 0=Dom, 6=Sab
+  if (dow === 0) return 'sunday';
+  if (dow === 6) return 'saturday';
+  return 'weekday';
+}
+
+// ── CALCULAR UN TURNO ────────────────────────────────────────────────────
+function calcTurno(tipo, startMin, endMin) {
+  const tramos = TRAMOS[tipo];
+  let crossesMidnight = endMin <= startMin;
+  if (crossesMidnight) endMin += 1440;
+
+  const acc = {}; // pct -> minutes
+
+  for (let m = startMin; m < endMin; m++) {
+    const mn = m % 1440;
+    let matched = null;
+    for (const t of tramos) {
+      if (mn >= t.start && mn <= t.end) { matched = t; break; }
+    }
+    const pct = matched ? matched.pct : 0;
+    acc[pct] = (acc[pct] || 0) + 1;
+  }
+  return { acc, totalMin: endMin - startMin, crossesMidnight };
+}
+
+// ── RENDER RESULTADO DÍA ─────────────────────────────────────────────────
+function renderDayResult(acc, totalMin) {
+  if (totalMin === 0) return '<span class="r-empty">Sin turno</span>';
+  const colorMap = { 0: 'r-normal', 40: 'r-40', 50: 'r-50', 60: 'r-60', 150: 'r-150', 200: 'r-200' };
+  const labelMap = { 0: 'Normal', 40: '+40%', 50: '+50%', 60: '+60%', 150: '+150%', 200: '+200%' };
+  let html = '';
+  for (const pct of [0, 40, 50, 60, 150, 200]) {
+    if (acc[pct]) {
+      const cls = colorMap[pct];
+      html += `<span class="${cls}">${labelMap[pct]}: ${fmtDec(acc[pct])}</span> `;
+    }
+  }
+  html += `<span style="color:var(--muted)">| Total: ${fmtDec(totalMin)}</span>`;
+  return html;
+}
+
+// ── INICIALIZAR AÑO ──────────────────────────────────────────────────────
+(function initYear() {
+  const sel = document.getElementById('yearFrom');
+  const now = new Date();
+  const cur = now.getFullYear();
+  for (let y = cur - 1; y <= cur + 1; y++) {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    if (y === cur) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  // Preselect current month
+  document.getElementById('monthFrom').value = now.getMonth();
+})();
+
+// ── CONSTRUIR PERÍODO ────────────────────────────────────────────────────
+function buildPeriod() {
+  const month = parseInt(document.getElementById('monthFrom').value);
+  const year  = parseInt(document.getElementById('yearFrom').value);
+
+  // Período: día 16 del mes seleccionado → día 15 del mes siguiente
+  const start = new Date(year, month, 16);
+  let endMonth = month + 1, endYear = year;
+  if (endMonth > 11) { endMonth = 0; endYear++; }
+  const end = new Date(endYear, endMonth, 15);
+
+  // Mostrar rango
+  document.getElementById('periodFrom').textContent =
+    `16 ${MESES[month]} ${year}`;
+  document.getElementById('periodTo').textContent =
+    `15 ${MESES[endMonth]} ${endYear}`;
+  document.getElementById('periodDisplay').style.display = 'block';
+
+  // Generar días
+  const list = document.getElementById('daysList');
+  list.innerHTML = '';
+
+  const current = new Date(start);
+  while (current <= end) {
+    const dow    = current.getDay();
+    const date   = new Date(current);
+    const dayKey = date.toISOString().slice(0,10);
+    const tipoDef = defaultTipo(date);
+
+    // Clases para colorear fin de semana
+    let rowCls = 'day-row';
+    if (dow === 0) rowCls += ' day-sunday';
+    else if (dow === 6) rowCls += ' day-weekend';
+
+    // Build select options
+    const opts = TIPO_OPTIONS.map(o =>
+      `<option value="${o.value}"${o.value===tipoDef?' selected':''}>${o.label}</option>`
+    ).join('');
+
+    const dd = String(date.getDate()).padStart(2,'0');
+    const mm = String(date.getMonth()+1).padStart(2,'0');
+
+    const row = document.createElement('div');
+    row.className = rowCls;
+    row.dataset.date = dayKey;
+    row.innerHTML = `
+      <div>
+        <div class="day-date">${dd}/${mm}/${date.getFullYear()}</div>
+      </div>
+      <div>
+        <div class="day-name">${DIAS_SEMANA[dow]}</div>
+        <select class="tipo-sel" onchange="calcularFila(this)" style="margin-top:.3rem">${opts}</select>
+      </div>
+      <input type="time" class="hora-entrada" placeholder="Entrada" onchange="autoSalida(this)">
+      <input type="time" class="hora-salida" placeholder="Salida" onchange="calcularFila(this)">
+      <button class="btn btn-sm" onclick="calcularFila(this)" style="background:var(--surf3);color:var(--muted2);border:1px solid var(--border)">Calc</button>
+      <div class="day-result"><span class="r-empty">—</span></div>
+    `;
+    list.appendChild(row);
+    current.setDate(current.getDate() + 1);
+  }
+
+  document.getElementById('daysSection').style.display = 'block';
+  document.getElementById('summarySection').style.display = 'none';
+  document.getElementById('daysSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── AUTOCOMPLETAR SALIDA (+8h) ───────────────────────────────────────────
+function autoSalida(inputEntrada) {
+  const row    = inputEntrada.closest('.day-row');
+  const salida = row.querySelector('.hora-salida');
+
+  if (inputEntrada.value) {
+    // Sumar 8 horas directamente en horas y minutos para evitar errores de redondeo
+    const [hIn, mIn] = inputEntrada.value.split(':').map(Number);
+    const totalMin = hIn * 60 + mIn + 480; // +8h = +480 min
+    const hOut = Math.floor(totalMin / 60) % 24;
+    const mOut = totalMin % 60;
+    const newSalida = String(hOut).padStart(2,'0') + ':' + String(mOut).padStart(2,'0');
+
+    // Siempre autocompletar al cambiar la entrada
+    salida.value = newSalida;
+  }
+
+  // Calcular inmediatamente
+  calcularFila(inputEntrada);
+}
+
+// ── CALCULAR FILA INDIVIDUAL ─────────────────────────────────────────────
+function calcularFila(el) {
+  const row     = el.closest('.day-row');
+  const tipo    = row.querySelector('.tipo-sel').value;
+  const entrada = row.querySelector('.hora-entrada').value;
+  const salida  = row.querySelector('.hora-salida').value;
+  const resultEl = row.querySelector('.day-result');
+
+  if (!entrada || !salida) {
+    resultEl.innerHTML = '<span class="r-empty">Ingresa entrada y salida</span>';
+    return;
+  }
+
+  const startMin = parseTime(entrada);
+  const endMin   = parseTime(salida);
+  const { acc, totalMin } = calcTurno(tipo, startMin, endMin);
+  resultEl.innerHTML = renderDayResult(acc, totalMin);
+
+  // Guardar datos para el resumen
+  row.dataset.acc   = JSON.stringify(acc);
+  row.dataset.total = totalMin;
+}
+
+// ── CALCULAR TODO EL PERÍODO ─────────────────────────────────────────────
+function calcularTodo() {
+  const rows = document.querySelectorAll('.day-row');
+
+  // Primero calcular todas las filas con datos
+  rows.forEach(row => {
+    const entrada = row.querySelector('.hora-entrada').value;
+    const salida  = row.querySelector('.hora-salida').value;
+    if (entrada && salida) {
+      const tipo    = row.querySelector('.tipo-sel').value;
+      const startMin = parseTime(entrada);
+      const endMin   = parseTime(salida);
+      const { acc, totalMin } = calcTurno(tipo, startMin, endMin);
+      row.querySelector('.day-result').innerHTML = renderDayResult(acc, totalMin);
+      row.dataset.acc   = JSON.stringify(acc);
+      row.dataset.total = totalMin;
+    }
+  });
+
+  // Acumular totales
+  const totals = { total: 0 };
+  let diasTrabajados = 0;
+
+  rows.forEach(row => {
+    if (row.dataset.acc) {
+      const acc = JSON.parse(row.dataset.acc);
+      const t   = parseInt(row.dataset.total || 0);
+      if (t > 0) {
+        diasTrabajados++;
+        totals.total = (totals.total || 0) + t;
+        for (const [pct, mins] of Object.entries(acc)) {
+          const k = 'r' + pct;
+          totals[k] = (totals[k] || 0) + mins;
+        }
+      }
+    }
+  });
+
+  // Render resumen
+  const grid = document.getElementById('summaryGrid');
+  grid.innerHTML = '';
+
+  const items = [
+    { key: 'total',   cls: 's-total',  label: 'Total horas período',       sub: `${diasTrabajados} días trabajados` },
+    { key: 'r0',      cls: 's-normal', label: 'Horas normales (sin recargo)', sub: '' },
+    { key: 'r40',     cls: 's-40',     label: 'Horas con recargo 40%',     sub: 'L–V 05:01–07:00 · 21:00–23:59 · Sáb 07:01–20:59' },
+    { key: 'r50',     cls: 's-50',     label: 'Horas con recargo 50%',     sub: 'L–V 00:00–05:00 · Domingo' },
+    { key: 'r60',     cls: 's-60',     label: 'Horas con recargo 60%',     sub: 'Turno Noche' },
+    { key: 'r150',    cls: 's-150',    label: 'Horas con recargo 150%',    sub: 'Feriado' },
+    { key: 'r200',    cls: 's-200',    label: 'Horas con recargo 200%',    sub: 'Feriado Irrenunciable' },
+  ];
+
+  items.forEach(item => {
+    const mins = totals[item.key] || 0;
+    if (item.key !== 'total' && mins === 0) return; // ocultar categorías vacías
+    const div = document.createElement('div');
+    div.className = `summary-item ${item.cls}`;
+    div.innerHTML = `
+      <span class="summary-item-label">${item.label}</span>
+      <span class="summary-item-value">${fmtDec(mins)}</span>
+      ${item.sub ? `<span class="summary-item-sub">${item.sub}</span>` : ''}
+    `;
+    grid.appendChild(div);
+  });
+
+  document.getElementById('summarySection').style.display = 'block';
+  document.getElementById('summarySection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── EXPORTAR A EXCEL ─────────────────────────────────────────────────────
+function exportarExcel() {
+  const rows = document.querySelectorAll('.day-row');
+  if (!rows.length) { alert('Primero genera un período.'); return; }
+
+  const periodoFrom = document.getElementById('periodFrom').textContent;
+  const periodoTo   = document.getElementById('periodTo').textContent;
+  const periodo     = `${periodoFrom} al ${periodoTo}`;
+
+  const TIPO_LABEL = {
+    weekday: 'Lunes – Viernes', saturday: 'Sábado', sunday: 'Domingo',
+    night: 'Turno Noche', holiday: 'Feriado', holiday_mandatory: 'Feriado Irrenunciable',
+  };
+
+  // ── Hoja 1: Detalle por día ──────────────────────────────────────────
+  const detalleData = [
+    [`Período: ${periodo}`],
+    [],
+    ['Fecha', 'Día', 'Tipo de día', 'Entrada', 'Salida', 'Total horas',
+     'Horas normales', 'Recargo 40%', 'Recargo 50%', 'Recargo 60%', 'Recargo 150%', 'Recargo 200%'],
+  ];
+
+  const totals = { total: 0, r0: 0, r40: 0, r50: 0, r60: 0, r150: 0, r200: 0 };
+  let diasTrabajados = 0;
+
+  rows.forEach(row => {
+    const fechaRaw = row.dataset.date || '';
+    // Formatear fecha dd/mm/yyyy
+    let fechaFmt = fechaRaw;
+    if (fechaRaw) {
+      const [y, m, d] = fechaRaw.split('-');
+      fechaFmt = `${d}/${m}/${y}`;
+    }
+    const dow = fechaRaw ? new Date(fechaRaw + 'T12:00:00').getDay() : '';
+    const diaNombre = fechaRaw ? DIAS_SEMANA[new Date(fechaRaw + 'T12:00:00').getDay()] : '';
+    const tipo    = row.querySelector('.tipo-sel')?.value || '';
+    const entrada = row.querySelector('.hora-entrada')?.value || '';
+    const salida  = row.querySelector('.hora-salida')?.value  || '';
+
+    let totalH = '', normal = '', r40 = '', r50 = '', r60 = '', r150 = '', r200 = '';
+
+    if (row.dataset.acc) {
+      const acc = JSON.parse(row.dataset.acc);
+      const t   = parseInt(row.dataset.total || 0);
+      if (t > 0) {
+        diasTrabajados++;
+        totalH = parseFloat((t / 60).toFixed(2));
+        normal = parseFloat(((acc[0]   || 0) / 60).toFixed(2));
+        r40    = parseFloat(((acc[40]  || 0) / 60).toFixed(2));
+        r50    = parseFloat(((acc[50]  || 0) / 60).toFixed(2));
+        r60    = parseFloat(((acc[60]  || 0) / 60).toFixed(2));
+        r150   = parseFloat(((acc[150] || 0) / 60).toFixed(2));
+        r200   = parseFloat(((acc[200] || 0) / 60).toFixed(2));
+
+        totals.total += t;
+        totals.r0    += (acc[0]   || 0);
+        totals.r40   += (acc[40]  || 0);
+        totals.r50   += (acc[50]  || 0);
+        totals.r60   += (acc[60]  || 0);
+        totals.r150  += (acc[150] || 0);
+        totals.r200  += (acc[200] || 0);
+      }
+    }
+
+    detalleData.push([
+      fechaFmt, diaNombre, TIPO_LABEL[tipo] || tipo,
+      entrada, salida, totalH,
+      normal || '', r40 || '', r50 || '', r60 || '', r150 || '', r200 || '',
+    ]);
+  });
+
+  // Fila de totales
+  detalleData.push([]);
+  detalleData.push([
+    'TOTALES', `${diasTrabajados} días`, '', '', '',
+    parseFloat((totals.total / 60).toFixed(2)),
+    parseFloat((totals.r0   / 60).toFixed(2)) || '',
+    parseFloat((totals.r40  / 60).toFixed(2)) || '',
+    parseFloat((totals.r50  / 60).toFixed(2)) || '',
+    parseFloat((totals.r60  / 60).toFixed(2)) || '',
+    parseFloat((totals.r150 / 60).toFixed(2)) || '',
+    parseFloat((totals.r200 / 60).toFixed(2)) || '',
+  ]);
+
+  // ── Hoja 2: Resumen ──────────────────────────────────────────────────
+  const resumenData = [
+    [`Resumen del período: ${periodo}`],
+    [],
+    ['Concepto', 'Horas decimales'],
+    ['Total horas período',         parseFloat((totals.total / 60).toFixed(2))],
+  ];
+  if (totals.r0)   resumenData.push(['Horas normales (sin recargo)',   parseFloat((totals.r0   / 60).toFixed(2))]);
+  if (totals.r40)  resumenData.push(['Horas con recargo 40%',          parseFloat((totals.r40  / 60).toFixed(2))]);
+  if (totals.r50)  resumenData.push(['Horas con recargo 50%',          parseFloat((totals.r50  / 60).toFixed(2))]);
+  if (totals.r60)  resumenData.push(['Horas con recargo 60%',          parseFloat((totals.r60  / 60).toFixed(2))]);
+  if (totals.r150) resumenData.push(['Horas con recargo 150%',         parseFloat((totals.r150 / 60).toFixed(2))]);
+  if (totals.r200) resumenData.push(['Horas con recargo 200%',         parseFloat((totals.r200 / 60).toFixed(2))]);
+
+  // ── Crear libro ──────────────────────────────────────────────────────
+  const wb = XLSX.utils.book_new();
+
+  const wsDetalle = XLSX.utils.aoa_to_sheet(detalleData);
+  // Ancho de columnas
+  wsDetalle['!cols'] = [
+    {wch:12},{wch:12},{wch:20},{wch:8},{wch:8},
+    {wch:13},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:16}
+  ];
+  XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle por día');
+
+  const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
+  wsResumen['!cols'] = [{wch:30},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+  // Nombre del archivo con el período
+  const nombreArchivo = `CalculaHoras_${periodoFrom.replace(/ /g,'_')}_${periodoTo.replace(/ /g,'_')}.xlsx`;
+  XLSX.writeFile(wb, nombreArchivo);
+}
+</script>
+</body>
+</html>
