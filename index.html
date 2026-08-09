@@ -194,17 +194,27 @@ select option { background: var(--surf3); }
   gap: .5rem;
   padding: .55rem 1rem;
   border-bottom: 1px solid var(--border);
-  align-items: center;
+  align-items: start;
   transition: background .1s;
 }
 .day-row:last-child { border-bottom: none; }
 .day-row:hover { background: rgba(79,142,247,.04); }
+
+/* Espaciador invisible que replica la altura de la etiqueta "day-name",
+   para que Entrada/Salida/Calc queden alineados con el select de Tipo de día */
+.row-spacer {
+  font-size: .75rem;
+  line-height: 1.2;
+  visibility: hidden;
+  height: 1em;
+}
 
 .day-date {
   font-family: var(--mono);
   font-size: .8rem;
   color: var(--text);
   font-weight: 500;
+  padding-top: .4rem;
 }
 .day-name {
   font-size: .75rem;
@@ -229,6 +239,7 @@ select option { background: var(--surf3); }
 }
 
 .day-result {
+  padding-top: .4rem;
   font-family: var(--mono);
   font-size: .75rem;
   color: var(--muted2);
@@ -488,16 +499,34 @@ function defaultTipo(date) {
   return 'weekday';
 }
 
-// ── CALCULAR UN TURNO ────────────────────────────────────────────────────
-function calcTurno(tipo, startMin, endMin) {
-  const tramos = TRAMOS[tipo];
-  let crossesMidnight = endMin <= startMin;
+// Determina el tipo de día del día SIGUIENTE a una fila (para turnos que cruzan medianoche)
+function getNextRowTipo(row) {
+  const next = row.nextElementSibling;
+  if (next && next.classList.contains('day-row')) {
+    return next.querySelector('.tipo-sel').value;
+  }
+  // Última fila del período: inferir según el calendario (no hay fila siguiente que consultar)
+  const dateStr = row.dataset.date;
+  if (dateStr) {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + 1);
+    return defaultTipo(d);
+  }
+  return row.querySelector('.tipo-sel').value;
+}
+
+// ── CALCULAR UN TURNO (soporta cruce de medianoche con distinto tipo de día) ──
+function calcTurno(tipo1, tipo2, startMin, endMin) {
+  const crossesMidnight = endMin <= startMin;
   if (crossesMidnight) endMin += 1440;
 
   const acc = {}; // pct -> minutes
 
   for (let m = startMin; m < endMin; m++) {
     const mn = m % 1440;
+    // Antes de medianoche (m < 1440) usa el tipo del día 1.
+    // Después de medianoche (m >= 1440) usa el tipo del día 2 (día siguiente).
+    const tramos = TRAMOS[m < 1440 ? tipo1 : tipo2];
     let matched = null;
     for (const t of tramos) {
       if (mn >= t.start && mn <= t.end) { matched = t; break; }
@@ -592,9 +621,18 @@ function buildPeriod() {
         <div class="day-name">${DIAS_SEMANA[dow]}</div>
         <select class="tipo-sel" onchange="calcularFila(this)" style="margin-top:.3rem">${opts}</select>
       </div>
-      <input type="time" class="hora-entrada" placeholder="Entrada" onchange="autoSalida(this)">
-      <input type="time" class="hora-salida" placeholder="Salida" onchange="calcularFila(this)">
-      <button class="btn btn-sm" onclick="calcularFila(this)" style="background:var(--surf3);color:var(--muted2);border:1px solid var(--border)">Calc</button>
+      <div>
+        <div class="row-spacer">&nbsp;</div>
+        <input type="time" class="hora-entrada" placeholder="Entrada" onchange="autoSalida(this)" style="margin-top:.3rem">
+      </div>
+      <div>
+        <div class="row-spacer">&nbsp;</div>
+        <input type="time" class="hora-salida" placeholder="Salida" onchange="calcularFila(this)" style="margin-top:.3rem">
+      </div>
+      <div>
+        <div class="row-spacer">&nbsp;</div>
+        <button class="btn btn-sm" onclick="calcularFila(this)" style="background:var(--surf3);color:var(--muted2);border:1px solid var(--border);margin-top:.3rem;width:100%">Calc</button>
+      </div>
       <div class="day-result"><span class="r-empty">—</span></div>
     `;
     list.appendChild(row);
@@ -630,19 +668,25 @@ function autoSalida(inputEntrada) {
 // ── CALCULAR FILA INDIVIDUAL ─────────────────────────────────────────────
 function calcularFila(el) {
   const row     = el.closest('.day-row');
-  const tipo    = row.querySelector('.tipo-sel').value;
+  const tipo1   = row.querySelector('.tipo-sel').value;
   const entrada = row.querySelector('.hora-entrada').value;
   const salida  = row.querySelector('.hora-salida').value;
   const resultEl = row.querySelector('.day-result');
 
   if (!entrada || !salida) {
     resultEl.innerHTML = '<span class="r-empty">Ingresa entrada y salida</span>';
+    // Limpiar datos guardados para que el resumen no use valores obsoletos
+    delete row.dataset.acc;
+    delete row.dataset.total;
     return;
   }
 
   const startMin = parseTime(entrada);
   const endMin   = parseTime(salida);
-  const { acc, totalMin } = calcTurno(tipo, startMin, endMin);
+  const crossesMidnight = endMin <= startMin;
+  const tipo2 = crossesMidnight ? getNextRowTipo(row) : tipo1;
+
+  const { acc, totalMin } = calcTurno(tipo1, tipo2, startMin, endMin);
   resultEl.innerHTML = renderDayResult(acc, totalMin);
 
   // Guardar datos para el resumen
@@ -654,18 +698,25 @@ function calcularFila(el) {
 function calcularTodo() {
   const rows = document.querySelectorAll('.day-row');
 
-  // Primero calcular todas las filas con datos
+  // Primero calcular todas las filas con datos, y limpiar las que no tienen
   rows.forEach(row => {
     const entrada = row.querySelector('.hora-entrada').value;
     const salida  = row.querySelector('.hora-salida').value;
     if (entrada && salida) {
-      const tipo    = row.querySelector('.tipo-sel').value;
+      const tipo1    = row.querySelector('.tipo-sel').value;
       const startMin = parseTime(entrada);
       const endMin   = parseTime(salida);
-      const { acc, totalMin } = calcTurno(tipo, startMin, endMin);
+      const crossesMidnight = endMin <= startMin;
+      const tipo2 = crossesMidnight ? getNextRowTipo(row) : tipo1;
+      const { acc, totalMin } = calcTurno(tipo1, tipo2, startMin, endMin);
       row.querySelector('.day-result').innerHTML = renderDayResult(acc, totalMin);
       row.dataset.acc   = JSON.stringify(acc);
       row.dataset.total = totalMin;
+    } else {
+      // Sin entrada o sin salida: limpiar cualquier dato viejo guardado
+      row.querySelector('.day-result').innerHTML = '<span class="r-empty">Ingresa entrada y salida</span>';
+      delete row.dataset.acc;
+      delete row.dataset.total;
     }
   });
 
