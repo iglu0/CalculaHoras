@@ -515,6 +515,19 @@ function getNextRowTipo(row) {
   return row.querySelector('.tipo-sel').value;
 }
 
+// Tipos que representan un día de CALENDARIO (deben cambiar de tramo al cruzar medianoche).
+// "night", "holiday" y "holiday_mandatory" son clasificaciones de TURNO completo, no de
+// calendario: si el usuario marca el turno así, el recargo se mantiene toda la duración
+// del turno aunque cruce a otro día calendario.
+const TIPOS_CALENDARIO = ['weekday', 'saturday', 'sunday'];
+
+// Resuelve el tipo2 (tramo aplicable después de medianoche) según corresponda
+function resolveTipo2(tipo1, row, crossesMidnight) {
+  if (!crossesMidnight) return tipo1;
+  if (!TIPOS_CALENDARIO.includes(tipo1)) return tipo1; // Turno Noche / Feriado / Feriado Irrenunciable: mismo tramo todo el turno
+  return getNextRowTipo(row);
+}
+
 // ── CALCULAR UN TURNO (soporta cruce de medianoche con distinto tipo de día) ──
 function calcTurno(tipo1, tipo2, startMin, endMin) {
   const crossesMidnight = endMin <= startMin;
@@ -684,7 +697,7 @@ function calcularFila(el) {
   const startMin = parseTime(entrada);
   const endMin   = parseTime(salida);
   const crossesMidnight = endMin <= startMin;
-  const tipo2 = crossesMidnight ? getNextRowTipo(row) : tipo1;
+  const tipo2 = resolveTipo2(tipo1, row, crossesMidnight);
 
   const { acc, totalMin } = calcTurno(tipo1, tipo2, startMin, endMin);
   resultEl.innerHTML = renderDayResult(acc, totalMin);
@@ -707,7 +720,7 @@ function calcularTodo() {
       const startMin = parseTime(entrada);
       const endMin   = parseTime(salida);
       const crossesMidnight = endMin <= startMin;
-      const tipo2 = crossesMidnight ? getNextRowTipo(row) : tipo1;
+      const tipo2 = resolveTipo2(tipo1, row, crossesMidnight);
       const { acc, totalMin } = calcTurno(tipo1, tipo2, startMin, endMin);
       row.querySelector('.day-result').innerHTML = renderDayResult(acc, totalMin);
       row.dataset.acc   = JSON.stringify(acc);
