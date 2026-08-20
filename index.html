@@ -24,6 +24,7 @@
   --yellow:   #f5c542;
   --purple:   #a78bfa;
   --red:      #f87171;
+  --orange:   #fb923c;
   --deepred:  #ef4444;
   --mono:     'IBM Plex Mono', monospace;
   --sans:     'Inter', sans-serif;
@@ -264,6 +265,7 @@ select option { background: var(--surf3); }
 .day-result .r-50 { color: var(--yellow); }
 .day-result .r-60 { color: var(--purple); }
 .day-result .r-150 { color: var(--red); }
+.day-result .r-160 { color: var(--orange); }
 .day-result .r-200 { color: var(--deepred); }
 .day-result .r-empty { color: var(--muted); font-style: italic; }
 
@@ -307,6 +309,7 @@ select option { background: var(--surf3); }
 .s-50      .summary-item-value { color: var(--yellow); }
 .s-60      .summary-item-value { color: var(--purple); }
 .s-150     .summary-item-value { color: var(--red); }
+.s-160     .summary-item-value { color: var(--orange); }
 .s-200     .summary-item-value { color: var(--deepred); }
 
 .summary-divider {
@@ -481,9 +484,10 @@ const TRAMOS = {
     { start: toMin(21,0), end: toMin(23,59), pct: 40 },
   ],
   saturday: [
-    { start: toMin(0,0),  end: toMin(7,0),   pct: 0  },
+    { start: toMin(0,0),  end: toMin(5,0),   pct: 50 },
+    { start: toMin(5,1),  end: toMin(7,0),   pct: 40 },
     { start: toMin(7,1),  end: toMin(20,59), pct: 40 },
-    { start: toMin(21,0), end: toMin(23,59), pct: 0  },
+    { start: toMin(21,0), end: toMin(23,59), pct: 40 },
   ],
   sunday: [
     { start: toMin(0,0),  end: toMin(23,59), pct: 50 },
@@ -491,8 +495,12 @@ const TRAMOS = {
   night: [
     { start: toMin(0,0),  end: toMin(23,59), pct: 60 },
   ],
-  holiday: [
+  holiday150: [
     { start: toMin(0,0),  end: toMin(23,59), pct: 150 },
+  ],
+  holiday160: [
+    { start: toMin(0,0),  end: toMin(11,59), pct: 0   },
+    { start: toMin(12,0), end: toMin(23,59), pct: 160 },
   ],
   holiday_mandatory: [
     { start: toMin(0,0),  end: toMin(23,59), pct: 200 },
@@ -504,9 +512,14 @@ const TIPO_OPTIONS = [
   { value: 'saturday',          label: 'Sábado' },
   { value: 'sunday',            label: 'Domingo' },
   { value: 'night',             label: 'Turno Noche' },
-  { value: 'holiday',           label: 'Feriado' },
+  { value: 'holiday150',        label: 'Feriados 150%' },
+  { value: 'holiday160',        label: 'Feriados 160%' },
   { value: 'holiday_mandatory', label: 'Feriado Irrenunciable' },
 ];
+
+// Feriados 160%: fechas específicas que reciben automáticamente este tipo de día
+// al generar el período (formato ISO YYYY-MM-DD)
+const FERIADOS_160 = ['2026-09-17', '2026-12-24', '2026-12-31'];
 
 // ── TABLEROS DE SERVICIO ──────────────────────────────────────────────────
 // Cada tablero (monday_thursday, friday, saturday, sunday_holiday) puede tener
@@ -977,7 +990,7 @@ const BOARD_LABELS = {
 // y/o el día calendario real de la fecha.
 function getBoardCategory(row) {
   const tipo = row.querySelector('.tipo-sel').value;
-  if (tipo === 'sunday' || tipo === 'holiday' || tipo === 'holiday_mandatory') return 'sunday_holiday';
+  if (tipo === 'sunday' || tipo === 'holiday150' || tipo === 'holiday160' || tipo === 'holiday_mandatory') return 'sunday_holiday';
   if (tipo === 'saturday') return 'saturday';
 
   // weekday / night: se determina por el día calendario real de la fecha
@@ -1026,7 +1039,7 @@ function getNextRowTipo(row) {
 }
 
 // Tipos que representan un día de CALENDARIO (deben cambiar de tramo al cruzar medianoche).
-// "night", "holiday" y "holiday_mandatory" son clasificaciones de TURNO completo, no de
+// "night", "holiday150", "holiday160" y "holiday_mandatory" son clasificaciones de TURNO completo, no de
 // calendario: si el usuario marca el turno así, el recargo se mantiene toda la duración
 // del turno aunque cruce a otro día calendario.
 const TIPOS_CALENDARIO = ['weekday', 'saturday', 'sunday'];
@@ -1063,10 +1076,10 @@ function calcTurno(tipo1, tipo2, startMin, endMin) {
 // ── RENDER RESULTADO DÍA ─────────────────────────────────────────────────
 function renderDayResult(acc, totalMin) {
   if (totalMin === 0) return '<span class="r-empty">Sin turno</span>';
-  const colorMap = { 0: 'r-normal', 40: 'r-40', 50: 'r-50', 60: 'r-60', 150: 'r-150', 200: 'r-200' };
-  const labelMap = { 0: 'Normal', 40: '+40%', 50: '+50%', 60: '+60%', 150: '+150%', 200: '+200%' };
+  const colorMap = { 0: 'r-normal', 40: 'r-40', 50: 'r-50', 60: 'r-60', 150: 'r-150', 160: 'r-160', 200: 'r-200' };
+  const labelMap = { 0: 'Normal', 40: '+40%', 50: '+50%', 60: '+60%', 150: '+150%', 160: '+160%', 200: '+200%' };
   let html = '';
-  for (const pct of [0, 40, 50, 60, 150, 200]) {
+  for (const pct of [0, 40, 50, 60, 150, 160, 200]) {
     if (acc[pct]) {
       const cls = colorMap[pct];
       html += `<span class="${cls}">${labelMap[pct]}: ${fmtDec(acc[pct])}</span> `;
@@ -1118,7 +1131,7 @@ function buildPeriod() {
     const dow    = current.getDay();
     const date   = new Date(current);
     const dayKey = date.toISOString().slice(0,10);
-    const tipoDef = defaultTipo(date);
+    const tipoDef = FERIADOS_160.includes(dayKey) ? 'holiday160' : defaultTipo(date);
 
     // Clases para colorear fin de semana
     let rowCls = 'day-row';
@@ -1322,11 +1335,12 @@ function calcularTodo() {
 
   const items = [
     { key: 'total',   cls: 's-total',  label: 'Total horas período',       sub: `${diasTrabajados} días trabajados` },
-    { key: 'r0',      cls: 's-normal', label: 'Horas normales (sin recargo)', sub: '' },
-    { key: 'r40',     cls: 's-40',     label: 'Horas con recargo 40%',     sub: 'L–V 05:01–07:00 · 21:00–23:59 · Sáb 07:01–20:59' },
-    { key: 'r50',     cls: 's-50',     label: 'Horas con recargo 50%',     sub: 'L–V 00:00–05:00 · Domingo' },
+    { key: 'r0',      cls: 's-normal', label: 'Horas normales (sin recargo)', sub: 'L–V 07:01–20:59' },
+    { key: 'r40',     cls: 's-40',     label: 'Horas con recargo 40%',     sub: 'L–V 05:01–07:00 · 21:00–23:59 · Sáb 05:01–23:59' },
+    { key: 'r50',     cls: 's-50',     label: 'Horas con recargo 50%',     sub: 'L–V y Sáb 00:00–05:00 · Domingo' },
     { key: 'r60',     cls: 's-60',     label: 'Horas con recargo 60%',     sub: 'Turno Noche' },
-    { key: 'r150',    cls: 's-150',    label: 'Horas con recargo 150%',    sub: 'Feriado' },
+    { key: 'r150',    cls: 's-150',    label: 'Horas con recargo 150%',    sub: 'Feriados 150%' },
+    { key: 'r160',    cls: 's-160',    label: 'Horas con recargo 160%',    sub: 'Feriados 160% (12:00–23:59)' },
     { key: 'r200',    cls: 's-200',    label: 'Horas con recargo 200%',    sub: 'Feriado Irrenunciable' },
   ];
 
@@ -1358,7 +1372,8 @@ function exportarExcel() {
 
   const TIPO_LABEL = {
     weekday: 'Lunes – Viernes', saturday: 'Sábado', sunday: 'Domingo',
-    night: 'Turno Noche', holiday: 'Feriado', holiday_mandatory: 'Feriado Irrenunciable',
+    night: 'Turno Noche', holiday150: 'Feriados 150%', holiday160: 'Feriados 160%',
+    holiday_mandatory: 'Feriado Irrenunciable',
   };
 
   // ── Hoja 1: Detalle por día ──────────────────────────────────────────
@@ -1366,10 +1381,10 @@ function exportarExcel() {
     [`Período: ${periodo}`],
     [],
     ['Fecha', 'Día', 'Tipo de día', 'Servicio', 'Entrada', 'Salida', 'Total horas',
-     'Horas normales', 'Recargo 40%', 'Recargo 50%', 'Recargo 60%', 'Recargo 150%', 'Recargo 200%'],
+     'Horas normales', 'Recargo 40%', 'Recargo 50%', 'Recargo 60%', 'Recargo 150%', 'Recargo 160%', 'Recargo 200%'],
   ];
 
-  const totals = { total: 0, r0: 0, r40: 0, r50: 0, r60: 0, r150: 0, r200: 0 };
+  const totals = { total: 0, r0: 0, r40: 0, r50: 0, r60: 0, r150: 0, r160: 0, r200: 0 };
   let diasTrabajados = 0;
 
   rows.forEach(row => {
@@ -1387,7 +1402,7 @@ function exportarExcel() {
     const entrada = row.querySelector('.hora-entrada')?.value || '';
     const salida  = row.querySelector('.hora-salida')?.value  || '';
 
-    let totalH = '', normal = '', r40 = '', r50 = '', r60 = '', r150 = '', r200 = '';
+    let totalH = '', normal = '', r40 = '', r50 = '', r60 = '', r150 = '', r160 = '', r200 = '';
 
     if (row.dataset.acc) {
       const acc = JSON.parse(row.dataset.acc);
@@ -1400,6 +1415,7 @@ function exportarExcel() {
         r50    = parseFloat(((acc[50]  || 0) / 60).toFixed(2));
         r60    = parseFloat(((acc[60]  || 0) / 60).toFixed(2));
         r150   = parseFloat(((acc[150] || 0) / 60).toFixed(2));
+        r160   = parseFloat(((acc[160] || 0) / 60).toFixed(2));
         r200   = parseFloat(((acc[200] || 0) / 60).toFixed(2));
 
         totals.total += t;
@@ -1408,6 +1424,7 @@ function exportarExcel() {
         totals.r50   += (acc[50]  || 0);
         totals.r60   += (acc[60]  || 0);
         totals.r150  += (acc[150] || 0);
+        totals.r160  += (acc[160] || 0);
         totals.r200  += (acc[200] || 0);
       }
     }
@@ -1415,7 +1432,7 @@ function exportarExcel() {
     detalleData.push([
       fechaFmt, diaNombre, TIPO_LABEL[tipo] || tipo, servicio,
       entrada, salida, totalH,
-      normal || '', r40 || '', r50 || '', r60 || '', r150 || '', r200 || '',
+      normal || '', r40 || '', r50 || '', r60 || '', r150 || '', r160 || '', r200 || '',
     ]);
   });
 
@@ -1429,6 +1446,7 @@ function exportarExcel() {
     parseFloat((totals.r50  / 60).toFixed(2)) || '',
     parseFloat((totals.r60  / 60).toFixed(2)) || '',
     parseFloat((totals.r150 / 60).toFixed(2)) || '',
+    parseFloat((totals.r160 / 60).toFixed(2)) || '',
     parseFloat((totals.r200 / 60).toFixed(2)) || '',
   ]);
 
@@ -1444,6 +1462,7 @@ function exportarExcel() {
   if (totals.r50)  resumenData.push(['Horas con recargo 50%',          parseFloat((totals.r50  / 60).toFixed(2))]);
   if (totals.r60)  resumenData.push(['Horas con recargo 60%',          parseFloat((totals.r60  / 60).toFixed(2))]);
   if (totals.r150) resumenData.push(['Horas con recargo 150%',         parseFloat((totals.r150 / 60).toFixed(2))]);
+  if (totals.r160) resumenData.push(['Horas con recargo 160%',         parseFloat((totals.r160 / 60).toFixed(2))]);
   if (totals.r200) resumenData.push(['Horas con recargo 200%',         parseFloat((totals.r200 / 60).toFixed(2))]);
 
   // ── Crear libro ──────────────────────────────────────────────────────
@@ -1453,7 +1472,7 @@ function exportarExcel() {
   // Ancho de columnas
   wsDetalle['!cols'] = [
     {wch:12},{wch:12},{wch:20},{wch:12},{wch:8},{wch:8},
-    {wch:13},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:16}
+    {wch:13},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:14},{wch:16}
   ];
   XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle por día');
 
