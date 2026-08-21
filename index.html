@@ -13,6 +13,14 @@
     autocompletado de horario, pegado masivo de listado de servicios
     por período, y exportación a Excel con detalle y resumen.
 
+  v2 — 20 Ago 2026
+    Los tableros de servicio se separaron a un archivo aparte
+    (tableros.js), cargado por index.html. Se agregó el código de
+    documento oficial (codigoDocumento) a cada tablero, visible en un
+    panel "Tableros vigentes" al generar el período, y en la
+    exportación a Excel (columna por día + bloque de referencia en
+    el resumen).
+
   Para agregar una nueva versión: incrementa el número, agrega la fecha
   y una línea breve de qué cambió, y actualiza el texto en <span id="appVersion">.
   ═══════════════════════════════════════════════════════════════════════
@@ -173,6 +181,38 @@ select option { background: var(--surf3); }
   gap: .5rem;
 }
 .period-dot { color: var(--muted); }
+
+.tableros-vigentes {
+  margin-top: .7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.tableros-vigentes-head {
+  padding: .5rem .8rem;
+  background: var(--surf3);
+  font-family: var(--mono);
+  font-size: .65rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.tablero-vigente-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: .45rem .8rem;
+  font-size: .78rem;
+  border-bottom: 1px solid var(--border);
+}
+.tablero-vigente-row:last-child { border-bottom: none; }
+.tablero-vigente-nombre { color: var(--muted2); }
+.tablero-vigente-codigo {
+  font-family: var(--mono);
+  font-size: .72rem;
+  color: var(--blue);
+}
 
 .btn {
   padding: .55rem 1.2rem;
@@ -459,7 +499,7 @@ select option { background: var(--surf3); }
   <span class="topbar-logo">CalculaHoras</span>
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Calculadora de recargos por turno</span>
-  <span class="topbar-version" id="appVersion">v1 · 20 Ago 2026</span>
+  <span class="topbar-version" id="appVersion">v2 · 20 Ago 2026</span>
 </div>
 
 <div class="wrapper">
@@ -495,6 +535,7 @@ select option { background: var(--surf3); }
           <span class="period-dot">→</span>
           <span id="periodTo">—</span>
         </div>
+        <div class="tableros-vigentes" id="tablerosVigentes"></div>
       </div>
     </div>
   </div>
@@ -556,6 +597,7 @@ select option { background: var(--surf3); }
 
 </div>
 
+<script src="tableros.js"></script>
 <script>
 // ── CONSTANTES ───────────────────────────────────────────────────────────
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -630,452 +672,13 @@ const FERIADOS_160 = ['2026-09-17', '2026-12-24', '2026-12-31'];
 // Para actualizar un tablero cuando cambie: agrega una nueva versión con su
 // "vigenciaDesde", y opcionalmente cierra la versión anterior con "vigenciaHasta".
 // vigenciaHasta: null significa "vigente hasta nuevo aviso".
-const TABLEROS = {
-  monday_thursday: [
-    {
-      vigenciaDesde: '2024-01-01',
-      vigenciaHasta: null,
-      servicios: [
-        { codigo: "51101", entrada: "05:14", salida: "13:14" },
-        { codigo: "51102", entrada: "05:05", salida: "13:05" },
-        { codigo: "51103", entrada: "05:08", salida: "13:08" },
-        { codigo: "51104", entrada: "06:35", salida: "14:35" },
-        { codigo: "51105", entrada: "06:06", salida: "14:06" },
-        { codigo: "51106", entrada: "05:17", salida: "13:17" },
-        { codigo: "51107", entrada: "05:47", salida: "13:47" },
-        { codigo: "51108", entrada: "06:22", salida: "14:22" },
-        { codigo: "51109", entrada: "05:28", salida: "13:28" },
-        { codigo: "51110", entrada: "05:13", salida: "13:13" },
-        { codigo: "51111", entrada: "05:05", salida: "13:05" },
-        { codigo: "51112", entrada: "06:47", salida: "14:47" },
-        { codigo: "51113", entrada: "06:52", salida: "14:52" },
-        { codigo: "51114", entrada: "05:26", salida: "13:26" },
-        { codigo: "51115", entrada: "07:00", salida: "15:00" },
-        { codigo: "51116", entrada: "06:30", salida: "14:30" },
-        { codigo: "51117", entrada: "06:36", salida: "14:36" },
-        { codigo: "51118", entrada: "05:01", salida: "13:01" },
-        { codigo: "51119", entrada: "05:22", salida: "13:22" },
-        { codigo: "51120", entrada: "05:16", salida: "13:16" },
-        { codigo: "51121", entrada: "05:39", salida: "13:39" },
-        { codigo: "51122", entrada: "05:58", salida: "13:58" },
-        { codigo: "51123", entrada: "05:11", salida: "13:11" },
-        { codigo: "51124", entrada: "05:08", salida: "13:08" },
-        { codigo: "51141", entrada: "04:42", salida: "12:42" },
-        { codigo: "51142", entrada: "04:58", salida: "12:58" },
-        { codigo: "51143", entrada: "04:56", salida: "12:56" },
-        { codigo: "51144", entrada: "04:49", salida: "12:49" },
-        { codigo: "51145", entrada: "04:46", salida: "12:46" },
-        { codigo: "51146", entrada: "04:53", salida: "12:53" },
-        { codigo: "51147", entrada: "04:50", salida: "12:50" },
-        { codigo: "511R1", entrada: "05:00", salida: "13:00" },
-        { codigo: "511R2", entrada: "05:45", salida: "13:45" },
-        { codigo: "511R3", entrada: "07:00", salida: "15:00" },
-        { codigo: "52101", entrada: "07:14", salida: "15:14" },
-        { codigo: "52102", entrada: "06:55", salida: "14:55" },
-        { codigo: "52103", entrada: "06:21", salida: "14:21" },
-        { codigo: "52104", entrada: "07:27", salida: "15:27" },
-        { codigo: "52105", entrada: "07:19", salida: "15:19" },
-        { codigo: "52106", entrada: "06:36", salida: "14:36" },
-        { codigo: "52107", entrada: "06:44", salida: "14:44" },
-        { codigo: "52108", entrada: "05:15", salida: "13:15" },
-        { codigo: "52109", entrada: "06:07", salida: "14:07" },
-        { codigo: "52110", entrada: "05:49", salida: "13:49" },
-        { codigo: "52111", entrada: "05:04", salida: "13:04" },
-        { codigo: "52112", entrada: "05:12", salida: "13:12" },
-        { codigo: "52113", entrada: "05:08", salida: "13:08" },
-        { codigo: "52114", entrada: "05:52", salida: "13:52" },
-        { codigo: "52115", entrada: "05:19", salida: "13:19" },
-        { codigo: "52116", entrada: "05:01", salida: "13:01" },
-        { codigo: "52117", entrada: "05:00", salida: "13:00" },
-        { codigo: "52118", entrada: "05:00", salida: "13:00" },
-        { codigo: "52119", entrada: "05:01", salida: "13:01" },
-        { codigo: "52120", entrada: "05:00", salida: "13:00" },
-        { codigo: "52121", entrada: "05:00", salida: "13:00" },
-        { codigo: "52122", entrada: "05:01", salida: "13:01" },
-        { codigo: "52141", entrada: "04:55", salida: "12:55" },
-        { codigo: "52142", entrada: "04:58", salida: "12:58" },
-        { codigo: "52143", entrada: "07:06", salida: "15:06" },
-        { codigo: "52144", entrada: "08:58", salida: "16:58" },
-        { codigo: "521R1", entrada: "05:00", salida: "13:00" },
-        { codigo: "521R2", entrada: "05:45", salida: "13:45" },
-        { codigo: "51201", entrada: "14:09", salida: "22:09" },
-        { codigo: "51202", entrada: "14:12", salida: "22:12" },
-        { codigo: "51203", entrada: "15:36", salida: "23:36" },
-        { codigo: "51204", entrada: "14:33", salida: "22:33" },
-        { codigo: "51205", entrada: "14:58", salida: "22:58" },
-        { codigo: "51206", entrada: "14:47", salida: "22:47" },
-        { codigo: "51207", entrada: "15:22", salida: "23:22" },
-        { codigo: "51208", entrada: "15:43", salida: "23:43" },
-        { codigo: "51209", entrada: "14:05", salida: "22:05" },
-        { codigo: "51210", entrada: "14:16", salida: "22:16" },
-        { codigo: "51211", entrada: "14:19", salida: "22:19" },
-        { codigo: "51212", entrada: "15:57", salida: "23:57" },
-        { codigo: "51213", entrada: "15:47", salida: "23:47" },
-        { codigo: "51241", entrada: "13:44", salida: "21:44" },
-        { codigo: "51242", entrada: "13:51", salida: "21:51" },
-        { codigo: "51243", entrada: "12:55", salida: "20:55" },
-        { codigo: "51244", entrada: "12:34", salida: "20:34" },
-        { codigo: "51245", entrada: "12:45", salida: "20:45" },
-        { codigo: "51246", entrada: "13:02", salida: "21:02" },
-        { codigo: "51247", entrada: "16:18", salida: "00:18" },
-        { codigo: "51248", entrada: "12:59", salida: "20:59" },
-        { codigo: "51249", entrada: "13:27", salida: "21:27" },
-        { codigo: "51250", entrada: "13:09", salida: "21:09" },
-        { codigo: "51251", entrada: "16:32", salida: "00:32" },
-        { codigo: "51252", entrada: "12:41", salida: "20:41" },
-        { codigo: "51253", entrada: "16:04", salida: "00:04" },
-        { codigo: "51254", entrada: "13:20", salida: "21:20" },
-        { codigo: "51255", entrada: "16:39", salida: "00:39" },
-        { codigo: "51256", entrada: "13:06", salida: "21:06" },
-        { codigo: "512R3", entrada: "15:30", salida: "23:30" },
-        { codigo: "512R5", entrada: "14:20", salida: "22:20" },
-        { codigo: "52201", entrada: "14:16", salida: "22:16" },
-        { codigo: "52202", entrada: "14:19", salida: "22:19" },
-        { codigo: "52203", entrada: "14:05", salida: "22:05" },
-        { codigo: "52204", entrada: "14:12", salida: "22:12" },
-        { codigo: "52205", entrada: "15:43", salida: "23:43" },
-        { codigo: "52206", entrada: "15:01", salida: "23:01" },
-        { codigo: "52207", entrada: "14:09", salida: "22:09" },
-        { codigo: "52208", entrada: "14:54", salida: "22:54" },
-        { codigo: "52209", entrada: "15:57", salida: "23:57" },
-        { codigo: "52210", entrada: "15:54", salida: "23:54" },
-        { codigo: "52241", entrada: "16:40", salida: "00:40" },
-        { codigo: "52242", entrada: "16:39", salida: "00:39" },
-        { codigo: "52243", entrada: "12:41", salida: "20:41" },
-        { codigo: "52244", entrada: "13:23", salida: "21:23" },
-        { codigo: "52245", entrada: "12:48", salida: "20:48" },
-        { codigo: "52246", entrada: "13:51", salida: "21:51" },
-        { codigo: "52247", entrada: "12:55", salida: "20:55" },
-        { codigo: "52248", entrada: "13:30", salida: "21:30" },
-        { codigo: "52249", entrada: "12:34", salida: "20:34" },
-        { codigo: "52250", entrada: "13:34", salida: "21:34" },
-        { codigo: "52251", entrada: "16:17", salida: "00:17" },
-        { codigo: "52252", entrada: "16:04", salida: "00:04" },
-        { codigo: "52253", entrada: "16:48", salida: "00:48" },
-        { codigo: "52254", entrada: "16:46", salida: "00:46" },
-        { codigo: "52255", entrada: "16:25", salida: "00:25" },
-        { codigo: "52256", entrada: "17:04", salida: "01:04" },
-        { codigo: "52257", entrada: "16:39", salida: "00:39" },
-        { codigo: "52258", entrada: "17:07", salida: "01:07" },
-        { codigo: "52259", entrada: "17:23", salida: "01:23" },
-        { codigo: "522R3", entrada: "15:30", salida: "23:30" },
-        { codigo: "522R5", entrada: "14:20", salida: "22:20" },
-        { codigo: "513MN", entrada: "21:55", salida: "05:55" },
-        { codigo: "523MN", entrada: "21:55", salida: "05:55" },
-        { codigo: "531MC", entrada: "04:45", salida: "12:45" },
-        { codigo: "532MC", entrada: "14:20", salida: "22:20" },
-        { codigo: "533MC", entrada: "22:30", salida: "06:30" },
-      ],
-    },
-  ],
-  friday: [
-    {
-      vigenciaDesde: '2024-01-01',
-      vigenciaHasta: null,
-      servicios: [
-        { codigo: "51101", entrada: "05:17", salida: "13:17" },
-        { codigo: "51102", entrada: "05:39", salida: "13:39" },
-        { codigo: "51103", entrada: "06:06", salida: "14:06" },
-        { codigo: "51104", entrada: "05:05", salida: "13:05" },
-        { codigo: "51105", entrada: "05:47", salida: "13:47" },
-        { codigo: "51106", entrada: "06:22", salida: "14:22" },
-        { codigo: "51107", entrada: "05:26", salida: "13:26" },
-        { codigo: "51108", entrada: "05:16", salida: "13:16" },
-        { codigo: "51109", entrada: "05:05", salida: "13:05" },
-        { codigo: "51110", entrada: "05:08", salida: "13:08" },
-        { codigo: "51111", entrada: "06:07", salida: "14:07" },
-        { codigo: "51112", entrada: "06:52", salida: "14:52" },
-        { codigo: "51113", entrada: "06:31", salida: "14:31" },
-        { codigo: "51114", entrada: "05:11", salida: "13:11" },
-        { codigo: "51115", entrada: "05:01", salida: "13:01" },
-        { codigo: "51116", entrada: "05:58", salida: "13:58" },
-        { codigo: "51117", entrada: "05:14", salida: "13:14" },
-        { codigo: "51118", entrada: "05:08", salida: "13:08" },
-        { codigo: "51119", entrada: "05:22", salida: "13:22" },
-        { codigo: "51120", entrada: "05:28", salida: "13:28" },
-        { codigo: "51141", entrada: "04:49", salida: "12:49" },
-        { codigo: "51142", entrada: "04:50", salida: "12:50" },
-        { codigo: "51143", entrada: "05:13", salida: "13:13" },
-        { codigo: "51144", entrada: "04:58", salida: "12:58" },
-        { codigo: "51145", entrada: "04:56", salida: "12:56" },
-        { codigo: "51146", entrada: "04:46", salida: "12:46" },
-        { codigo: "51147", entrada: "04:53", salida: "12:53" },
-        { codigo: "51148", entrada: "04:42", salida: "12:42" },
-        { codigo: "51149", entrada: "06:35", salida: "14:35" },
-        { codigo: "511R1", entrada: "05:00", salida: "13:00" },
-        { codigo: "511R2", entrada: "05:45", salida: "13:45" },
-        { codigo: "511R3", entrada: "07:00", salida: "15:00" },
-        { codigo: "52101", entrada: "07:03", salida: "15:03" },
-        { codigo: "52102", entrada: "05:52", salida: "13:52" },
-        { codigo: "52103", entrada: "06:49", salida: "14:49" },
-        { codigo: "52104", entrada: "05:19", salida: "13:19" },
-        { codigo: "52105", entrada: "06:36", salida: "14:36" },
-        { codigo: "52106", entrada: "05:08", salida: "13:08" },
-        { codigo: "52107", entrada: "06:41", salida: "14:41" },
-        { codigo: "52108", entrada: "07:08", salida: "15:08" },
-        { codigo: "52109", entrada: "06:04", salida: "14:04" },
-        { codigo: "52110", entrada: "05:12", salida: "13:12" },
-        { codigo: "52111", entrada: "07:11", salida: "15:11" },
-        { codigo: "52112", entrada: "06:21", salida: "14:21" },
-        { codigo: "52113", entrada: "05:04", salida: "13:04" },
-        { codigo: "52114", entrada: "05:15", salida: "13:15" },
-        { codigo: "52115", entrada: "05:49", salida: "13:49" },
-        { codigo: "52116", entrada: "05:01", salida: "13:01" },
-        { codigo: "52117", entrada: "05:00", salida: "13:00" },
-        { codigo: "52118", entrada: "05:00", salida: "13:00" },
-        { codigo: "52119", entrada: "05:01", salida: "13:01" },
-        { codigo: "52120", entrada: "05:00", salida: "13:00" },
-        { codigo: "52121", entrada: "05:00", salida: "13:00" },
-        { codigo: "52122", entrada: "05:01", salida: "13:01" },
-        { codigo: "52141", entrada: "04:58", salida: "12:58" },
-        { codigo: "52142", entrada: "04:55", salida: "12:55" },
-        { codigo: "52143", entrada: "08:04", salida: "16:04" },
-        { codigo: "52144", entrada: "07:32", salida: "15:32" },
-        { codigo: "52145", entrada: "07:56", salida: "15:56" },
-        { codigo: "52146", entrada: "08:20", salida: "16:20" },
-        { codigo: "521R1", entrada: "05:00", salida: "13:00" },
-        { codigo: "521R2", entrada: "05:45", salida: "13:45" },
-        { codigo: "51201", entrada: "15:22", salida: "23:22" },
-        { codigo: "51202", entrada: "14:02", salida: "22:02" },
-        { codigo: "51203", entrada: "15:08", salida: "23:08" },
-        { codigo: "51204", entrada: "15:53", salida: "23:53" },
-        { codigo: "51205", entrada: "15:23", salida: "23:23" },
-        { codigo: "51206", entrada: "15:00", salida: "23:00" },
-        { codigo: "51207", entrada: "14:33", salida: "22:33" },
-        { codigo: "51208", entrada: "14:26", salida: "22:26" },
-        { codigo: "51209", entrada: "14:12", salida: "22:12" },
-        { codigo: "51210", entrada: "15:21", salida: "23:21" },
-        { codigo: "51211", entrada: "14:37", salida: "22:37" },
-        { codigo: "51212", entrada: "15:58", salida: "23:58" },
-        { codigo: "51241", entrada: "13:41", salida: "21:41" },
-        { codigo: "51242", entrada: "13:16", salida: "21:16" },
-        { codigo: "51243", entrada: "12:52", salida: "20:52" },
-        { codigo: "51244", entrada: "13:34", salida: "21:34" },
-        { codigo: "51245", entrada: "13:44", salida: "21:44" },
-        { codigo: "51246", entrada: "13:27", salida: "21:27" },
-        { codigo: "51247", entrada: "13:55", salida: "21:55" },
-        { codigo: "51248", entrada: "12:31", salida: "20:31" },
-        { codigo: "51249", entrada: "12:59", salida: "20:59" },
-        { codigo: "51250", entrada: "12:48", salida: "20:48" },
-        { codigo: "51251", entrada: "12:38", salida: "20:38" },
-        { codigo: "51252", entrada: "13:06", salida: "21:06" },
-        { codigo: "51253", entrada: "16:19", salida: "00:19" },
-        { codigo: "51254", entrada: "16:04", salida: "00:04" },
-        { codigo: "51255", entrada: "12:41", salida: "20:41" },
-        { codigo: "51256", entrada: "16:41", salida: "00:41" },
-        { codigo: "51257", entrada: "13:30", salida: "21:30" },
-        { codigo: "51258", entrada: "12:38", salida: "20:38" },
-        { codigo: "51259", entrada: "12:55", salida: "20:55" },
-        { codigo: "51260", entrada: "13:20", salida: "21:20" },
-        { codigo: "512R3", entrada: "15:30", salida: "23:30" },
-        { codigo: "512R5", entrada: "14:20", salida: "22:20" },
-        { codigo: "52201", entrada: "14:02", salida: "22:02" },
-        { codigo: "52202", entrada: "15:34", salida: "23:34" },
-        { codigo: "52203", entrada: "15:08", salida: "23:08" },
-        { codigo: "52204", entrada: "14:47", salida: "22:47" },
-        { codigo: "52205", entrada: "15:58", salida: "23:58" },
-        { codigo: "52206", entrada: "14:51", salida: "22:51" },
-        { codigo: "52207", entrada: "15:36", salida: "23:36" },
-        { codigo: "52241", entrada: "13:41", salida: "21:41" },
-        { codigo: "52242", entrada: "13:48", salida: "21:48" },
-        { codigo: "52243", entrada: "13:23", salida: "21:23" },
-        { codigo: "52244", entrada: "13:06", salida: "21:06" },
-        { codigo: "52245", entrada: "13:37", salida: "21:37" },
-        { codigo: "52246", entrada: "13:44", salida: "21:44" },
-        { codigo: "52247", entrada: "12:59", salida: "20:59" },
-        { codigo: "52248", entrada: "13:51", salida: "21:51" },
-        { codigo: "52249", entrada: "16:10", salida: "00:10" },
-        { codigo: "52250", entrada: "16:15", salida: "00:15" },
-        { codigo: "52251", entrada: "12:55", salida: "20:55" },
-        { codigo: "52252", entrada: "16:38", salida: "00:38" },
-        { codigo: "52253", entrada: "16:27", salida: "00:27" },
-        { codigo: "52254", entrada: "16:55", salida: "00:55" },
-        { codigo: "52255", entrada: "16:58", salida: "00:58" },
-        { codigo: "52256", entrada: "16:32", salida: "00:32" },
-        { codigo: "52257", entrada: "16:49", salida: "00:49" },
-        { codigo: "52258", entrada: "16:24", salida: "00:24" },
-        { codigo: "52259", entrada: "16:58", salida: "00:58" },
-        { codigo: "52260", entrada: "17:04", salida: "01:04" },
-        { codigo: "522R3", entrada: "15:30", salida: "23:30" },
-        { codigo: "522R5", entrada: "14:20", salida: "22:20" },
-        { codigo: "513MN", entrada: "21:55", salida: "05:55" },
-        { codigo: "523MN", entrada: "21:55", salida: "05:55" },
-        { codigo: "531MC", entrada: "05:00", salida: "13:00" },
-        { codigo: "532MC", entrada: "14:20", salida: "22:20" },
-        { codigo: "533MC", entrada: "22:00", salida: "06:00" },
-      ],
-    },
-  ],
-  saturday: [
-    {
-      vigenciaDesde: '2024-01-01',
-      vigenciaHasta: null,
-      servicios: [
-        { codigo: "51101", entrada: "06:18", salida: "14:18" },
-        { codigo: "51102", entrada: "06:05", salida: "14:05" },
-        { codigo: "51103", entrada: "06:38", salida: "14:38" },
-        { codigo: "51104", entrada: "05:47", salida: "13:47" },
-        { codigo: "51105", entrada: "05:40", salida: "13:40" },
-        { codigo: "51106", entrada: "05:55", salida: "13:55" },
-        { codigo: "51107", entrada: "06:48", salida: "14:48" },
-        { codigo: "51108", entrada: "06:10", salida: "14:10" },
-        { codigo: "51109", entrada: "07:27", salida: "15:27" },
-        { codigo: "51110", entrada: "05:54", salida: "13:54" },
-        { codigo: "51111", entrada: "05:45", salida: "13:45" },
-        { codigo: "51141", entrada: "08:43", salida: "16:43" },
-        { codigo: "51142", entrada: "08:53", salida: "16:53" },
-        { codigo: "51143", entrada: "08:15", salida: "16:15" },
-        { codigo: "51144", entrada: "08:58", salida: "16:58" },
-        { codigo: "51145", entrada: "08:48", salida: "16:48" },
-        { codigo: "511R1", entrada: "05:00", salida: "13:00" },
-        { codigo: "511R2", entrada: "05:00", salida: "13:00" },
-        { codigo: "511R3", entrada: "07:00", salida: "15:00" },
-        { codigo: "51201", entrada: "15:55", salida: "23:55" },
-        { codigo: "51202", entrada: "14:53", salida: "22:53" },
-        { codigo: "51203", entrada: "14:34", salida: "22:34" },
-        { codigo: "51204", entrada: "15:17", salida: "23:17" },
-        { codigo: "51205", entrada: "14:00", salida: "22:00" },
-        { codigo: "51206", entrada: "15:51", salida: "23:51" },
-        { codigo: "51207", entrada: "14:31", salida: "22:31" },
-        { codigo: "51241", entrada: "12:58", salida: "20:58" },
-        { codigo: "51242", entrada: "13:46", salida: "21:46" },
-        { codigo: "51243", entrada: "17:07", salida: "01:07" },
-        { codigo: "51244", entrada: "13:17", salida: "21:17" },
-        { codigo: "51245", entrada: "12:34", salida: "20:34" },
-        { codigo: "51246", entrada: "16:48", salida: "00:48" },
-        { codigo: "51247", entrada: "12:43", salida: "20:43" },
-        { codigo: "51248", entrada: "13:22", salida: "21:22" },
-        { codigo: "51249", entrada: "16:19", salida: "00:19" },
-        { codigo: "51250", entrada: "17:34", salida: "01:34" },
-        { codigo: "51251", entrada: "12:55", salida: "20:55" },
-        { codigo: "512R3", entrada: "15:30", salida: "23:30" },
-        { codigo: "512R5", entrada: "14:20", salida: "22:20" },
-        { codigo: "52101", entrada: "05:40", salida: "13:40" },
-        { codigo: "52102", entrada: "05:44", salida: "13:44" },
-        { codigo: "52103", entrada: "07:15", salida: "15:15" },
-        { codigo: "52104", entrada: "07:24", salida: "15:24" },
-        { codigo: "52105", entrada: "05:47", salida: "13:47" },
-        { codigo: "52106", entrada: "06:55", salida: "14:55" },
-        { codigo: "52107", entrada: "05:40", salida: "13:40" },
-        { codigo: "52108", entrada: "05:53", salida: "13:53" },
-        { codigo: "52109", entrada: "05:50", salida: "13:50" },
-        { codigo: "52110", entrada: "05:53", salida: "13:53" },
-        { codigo: "52111", entrada: "05:50", salida: "13:50" },
-        { codigo: "52112", entrada: "05:50", salida: "13:50" },
-        { codigo: "52113", entrada: "05:52", salida: "13:52" },
-        { codigo: "52114", entrada: "05:50", salida: "13:50" },
-        { codigo: "52115", entrada: "05:52", salida: "13:52" },
-        { codigo: "52141", entrada: "08:41", salida: "16:41" },
-        { codigo: "52142", entrada: "08:46", salida: "16:46" },
-        { codigo: "52143", entrada: "08:55", salida: "16:55" },
-        { codigo: "52144", entrada: "08:51", salida: "16:51" },
-        { codigo: "521R1", entrada: "05:45", salida: "13:45" },
-        { codigo: "521R2", entrada: "05:45", salida: "13:45" },
-        { codigo: "52201", entrada: "14:46", salida: "22:46" },
-        { codigo: "52202", entrada: "14:27", salida: "22:27" },
-        { codigo: "52203", entrada: "15:48", salida: "23:48" },
-        { codigo: "52204", entrada: "15:34", salida: "23:34" },
-        { codigo: "52205", entrada: "14:10", salida: "22:10" },
-        { codigo: "52241", entrada: "17:15", salida: "01:15" },
-        { codigo: "52242", entrada: "13:00", salida: "21:00" },
-        { codigo: "52243", entrada: "13:24", salida: "21:24" },
-        { codigo: "52244", entrada: "12:36", salida: "20:36" },
-        { codigo: "52245", entrada: "16:17", salida: "00:17" },
-        { codigo: "52246", entrada: "16:03", salida: "00:03" },
-        { codigo: "52247", entrada: "17:05", salida: "01:05" },
-        { codigo: "52248", entrada: "17:19", salida: "01:19" },
-        { codigo: "52249", entrada: "17:10", salida: "01:10" },
-        { codigo: "52250", entrada: "17:17", salida: "01:17" },
-        { codigo: "52251", entrada: "17:03", salida: "01:03" },
-        { codigo: "52252", entrada: "17:51", salida: "01:51" },
-        { codigo: "52253", entrada: "17:41", salida: "01:41" },
-        { codigo: "52254", entrada: "12:39", salida: "20:39" },
-        { codigo: "522R3", entrada: "15:30", salida: "23:30" },
-        { codigo: "522R5", entrada: "14:20", salida: "22:20" },
-        { codigo: "513MN", entrada: "23:00", salida: "07:00" },
-        { codigo: "523MN", entrada: "23:00", salida: "07:00" },
-        { codigo: "513MN01", entrada: "23:00", salida: "07:00" },
-        { codigo: "523MN02", entrada: "23:00", salida: "07:00" },
-        { codigo: "531MC", entrada: "05:00", salida: "13:00" },
-        { codigo: "532MC", entrada: "14:00", salida: "22:00" },
-        { codigo: "533MC", entrada: "22:30", salida: "06:30" },
-      ],
-    },
-  ],
-  sunday_holiday: [
-    {
-      vigenciaDesde: '2024-01-01',
-      vigenciaHasta: null,
-      servicios: [
-        { codigo: "51101", entrada: "07:01", salida: "15:01" },
-        { codigo: "51102", entrada: "07:09", salida: "15:09" },
-        { codigo: "51103", entrada: "07:16", salida: "15:16" },
-        { codigo: "51141", entrada: "06:54", salida: "14:54" },
-        { codigo: "51142", entrada: "08:23", salida: "16:23" },
-        { codigo: "51143", entrada: "08:30", salida: "16:30" },
-        { codigo: "51144", entrada: "06:35", salida: "14:35" },
-        { codigo: "511R1", entrada: "06:30", salida: "14:30" },
-        { codigo: "511R2", entrada: "06:30", salida: "14:30" },
-        { codigo: "511R3", entrada: "07:00", salida: "15:00" },
-        { codigo: "52141", entrada: "06:30", salida: "14:30" },
-        { codigo: "52142", entrada: "06:37", salida: "14:37" },
-        { codigo: "52143", entrada: "08:50", salida: "16:50" },
-        { codigo: "52144", entrada: "06:57", salida: "14:57" },
-        { codigo: "52145", entrada: "08:57", salida: "16:57" },
-        { codigo: "52146", entrada: "06:43", salida: "14:43" },
-        { codigo: "52147", entrada: "06:50", salida: "14:50" },
-        { codigo: "52148", entrada: "06:32", salida: "14:32" },
-        { codigo: "52149", entrada: "06:30", salida: "14:30" },
-        { codigo: "52150", entrada: "06:30", salida: "14:30" },
-        { codigo: "52151", entrada: "06:32", salida: "14:32" },
-        { codigo: "52152", entrada: "06:34", salida: "14:34" },
-        { codigo: "52153", entrada: "06:32", salida: "14:32" },
-        { codigo: "521R1", entrada: "06:30", salida: "14:30" },
-        { codigo: "521R2", entrada: "06:30", salida: "14:30" },
-        { codigo: "51201", entrada: "14:17", salida: "22:17" },
-        { codigo: "51202", entrada: "15:43", salida: "23:43" },
-        { codigo: "51203", entrada: "15:57", salida: "23:57" },
-        { codigo: "51241", entrada: "16:50", salida: "00:50" },
-        { codigo: "51242", entrada: "16:37", salida: "00:37" },
-        { codigo: "51243", entrada: "13:10", salida: "21:10" },
-        { codigo: "51244", entrada: "13:50", salida: "21:50" },
-        { codigo: "51245", entrada: "16:17", salida: "00:17" },
-        { codigo: "512R3", entrada: "15:30", salida: "23:30" },
-        { codigo: "512R5", entrada: "14:30", salida: "22:30" },
-        { codigo: "52201", entrada: "14:03", salida: "22:03" },
-        { codigo: "52202", entrada: "14:10", salida: "22:10" },
-        { codigo: "52203", entrada: "15:37", salida: "23:37" },
-        { codigo: "52204", entrada: "15:30", salida: "23:30" },
-        { codigo: "52205", entrada: "14:23", salida: "22:23" },
-        { codigo: "52241", entrada: "16:57", salida: "00:57" },
-        { codigo: "52242", entrada: "16:43", salida: "00:43" },
-        { codigo: "52243", entrada: "16:50", salida: "00:50" },
-        { codigo: "52244", entrada: "16:57", salida: "00:57" },
-        { codigo: "52245", entrada: "17:10", salida: "01:10" },
-        { codigo: "52246", entrada: "17:03", salida: "01:03" },
-        { codigo: "52247", entrada: "16:43", salida: "00:43" },
-        { codigo: "52248", entrada: "16:30", salida: "00:30" },
-        { codigo: "52249", entrada: "16:17", salida: "00:17" },
-        { codigo: "52250", entrada: "17:17", salida: "01:17" },
-        { codigo: "52251", entrada: "17:23", salida: "01:23" },
-        { codigo: "52252", entrada: "17:57", salida: "01:57" },
-        { codigo: "522R3", entrada: "15:30", salida: "23:30" },
-        { codigo: "522R5", entrada: "14:30", salida: "22:30" },
-        { codigo: "51441", entrada: "08:59", salida: "16:59" },
-        { codigo: "51442", entrada: "10:03", salida: "18:03" },
-        { codigo: "51443", entrada: "10:23", salida: "18:23" },
-        { codigo: "51444", entrada: "08:59", salida: "16:59" },
-        { codigo: "52441", entrada: "10:43", salida: "18:43" },
-        { codigo: "52442", entrada: "09:43", salida: "17:43" },
-        { codigo: "513MN", entrada: "23:00", salida: "07:00" },
-        { codigo: "523MN", entrada: "23:00", salida: "07:00" },
-        { codigo: "531MC", entrada: "06:30", salida: "14:30" },
-        { codigo: "532MC", entrada: "14:30", salida: "22:30" },
-        { codigo: "533MC", entrada: "22:30", salida: "06:30" },
-      ],
-    },
-  ],
-};
+// ── TABLEROS DE SERVICIO ──────────────────────────────────────────────────
+// Los datos de los 4 tableros (Lunes a Jueves, Viernes, Sábado, Domingo y
+// Feriados) ahora viven en el archivo tableros.js, cargado más abajo con
+// Los datos de los 4 tableros (Lunes a Jueves, Viernes, Sábado, Domingo y
+// Feriados) ahora viven en el archivo tableros.js, cargado más arriba.
+// Ese archivo define la variable
+// global TABLEROS que se usa aquí abajo tal como antes.
 
 const BOARD_LABELS = {
   monday_thursday: 'Lunes a Jueves',
@@ -1083,6 +686,29 @@ const BOARD_LABELS = {
   saturday: 'Sábado',
   sunday_holiday: 'Domingo y Feriados',
 };
+
+// Muestra el panel con los códigos de documento de los 4 tableros vigentes
+// para la fecha indicada (se usa el último día del período — 15 del mes
+// de liquidación — como referencia)
+function renderTablerosVigentes(dateStr) {
+  const cont = document.getElementById('tablerosVigentes');
+  if (!cont) return;
+
+  const boardKeys = ['monday_thursday', 'friday', 'saturday', 'sunday_holiday'];
+  let html = '<div class="tableros-vigentes-head">Tableros vigentes para este período</div>';
+
+  boardKeys.forEach(key => {
+    const version = getActiveVersion(key, dateStr);
+    const codigo  = version && version.codigoDocumento ? version.codigoDocumento : 'No disponible';
+    html += `
+      <div class="tablero-vigente-row">
+        <span class="tablero-vigente-nombre">${BOARD_LABELS[key]}</span>
+        <span class="tablero-vigente-codigo">${codigo}</span>
+      </div>`;
+  });
+
+  cont.innerHTML = html;
+}
 
 // Determina qué tablero corresponde a una fila, según su tipo de recargo
 // y/o el día calendario real de la fecha.
@@ -1111,6 +737,19 @@ function getActiveServiceList(boardKey, dateStr) {
   }
   // Fallback: si no hay versión vigente exacta, usar la más reciente disponible
   return versions.length ? versions[versions.length - 1].servicios : [];
+}
+
+// Retorna la VERSIÓN completa vigente de un tablero en una fecha dada
+// (incluye codigoDocumento, vigenciaDesde/Hasta), no solo el listado de servicios
+function getActiveVersion(boardKey, dateStr) {
+  const versions = TABLEROS[boardKey] || [];
+  const date = dateStr || new Date().toISOString().slice(0, 10);
+  for (const v of versions) {
+    if (date >= v.vigenciaDesde && (!v.vigenciaHasta || date <= v.vigenciaHasta)) {
+      return v;
+    }
+  }
+  return versions.length ? versions[versions.length - 1] : null;
 }
 
 function defaultTipo(date) {
@@ -1220,6 +859,8 @@ function buildPeriod() {
   document.getElementById('periodTo').textContent =
     `15 ${MESES[month]} ${year}`;
   document.getElementById('periodDisplay').style.display = 'block';
+
+  renderTablerosVigentes(end.toISOString().slice(0, 10));
 
   // Generar días
   const list = document.getElementById('daysList');
@@ -1557,7 +1198,7 @@ function exportarExcel() {
   const detalleData = [
     [`Período: ${periodo}`],
     [],
-    ['Fecha', 'Día', 'Tipo de día', 'Servicio', 'Entrada', 'Salida', 'Total horas',
+    ['Fecha', 'Día', 'Tipo de día', 'Servicio', 'Documento tablero', 'Entrada', 'Salida', 'Total horas',
      'Horas normales', 'Recargo 40%', 'Recargo 50%', 'Recargo 60%', 'Recargo 150%', 'Recargo 160%', 'Recargo 200%'],
   ];
 
@@ -1578,6 +1219,11 @@ function exportarExcel() {
     const servicio= row.querySelector('.servicio-input')?.value || '';
     const entrada = row.querySelector('.hora-entrada')?.value || '';
     const salida  = row.querySelector('.hora-salida')?.value  || '';
+
+    // Documento del tablero usado ese día
+    const boardKey = getBoardCategory(row);
+    const version  = getActiveVersion(boardKey, fechaRaw);
+    const docTablero = version && version.codigoDocumento ? version.codigoDocumento : '';
 
     let totalH = '', normal = '', r40 = '', r50 = '', r60 = '', r150 = '', r160 = '', r200 = '';
 
@@ -1607,7 +1253,7 @@ function exportarExcel() {
     }
 
     detalleData.push([
-      fechaFmt, diaNombre, TIPO_LABEL[tipo] || tipo, servicio,
+      fechaFmt, diaNombre, TIPO_LABEL[tipo] || tipo, servicio, docTablero,
       entrada, salida, totalH,
       normal || '', r40 || '', r50 || '', r60 || '', r150 || '', r160 || '', r200 || '',
     ]);
@@ -1616,7 +1262,7 @@ function exportarExcel() {
   // Fila de totales
   detalleData.push([]);
   detalleData.push([
-    'TOTALES', `${diasTrabajados} días`, '', '', '', '',
+    'TOTALES', `${diasTrabajados} días`, '', '', '', '', '',
     parseFloat((totals.total / 60).toFixed(2)),
     parseFloat((totals.r0   / 60).toFixed(2)) || '',
     parseFloat((totals.r40  / 60).toFixed(2)) || '',
@@ -1642,13 +1288,28 @@ function exportarExcel() {
   if (totals.r160) resumenData.push(['Horas con recargo 160%',         parseFloat((totals.r160 / 60).toFixed(2))]);
   if (totals.r200) resumenData.push(['Horas con recargo 200%',         parseFloat((totals.r200 / 60).toFixed(2))]);
 
+  // Documentos de referencia de los 4 tableros vigentes en este período
+  resumenData.push([]);
+  resumenData.push(['Documentos de referencia (tableros vigentes)']);
+  const refDate = (rows[rows.length - 1] && rows[rows.length - 1].dataset.date) || new Date().toISOString().slice(0,10);
+  const boardKeysResumen = ['monday_thursday', 'friday', 'saturday', 'sunday_holiday'];
+  const boardLabelsResumen = {
+    monday_thursday: 'Lunes a Jueves', friday: 'Viernes',
+    saturday: 'Sábado', sunday_holiday: 'Domingo y Feriados',
+  };
+  boardKeysResumen.forEach(key => {
+    const version = getActiveVersion(key, refDate);
+    const codigo  = version && version.codigoDocumento ? version.codigoDocumento : 'No disponible';
+    resumenData.push([boardLabelsResumen[key], codigo]);
+  });
+
   // ── Crear libro ──────────────────────────────────────────────────────
   const wb = XLSX.utils.book_new();
 
   const wsDetalle = XLSX.utils.aoa_to_sheet(detalleData);
   // Ancho de columnas
   wsDetalle['!cols'] = [
-    {wch:12},{wch:12},{wch:20},{wch:12},{wch:8},{wch:8},
+    {wch:12},{wch:12},{wch:20},{wch:12},{wch:26},{wch:8},{wch:8},
     {wch:13},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:14},{wch:16}
   ];
   XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle por día');
