@@ -1,4 +1,22 @@
 <!DOCTYPE html>
+<!--
+  CalculaHoras — Calculadora de Recargos por Turno
+  ═══════════════════════════════════════════════════════════════════════
+  CHANGELOG
+
+  v1 — 20 Ago 2026
+    Versión inicial con seguimiento de versión. Incluye: cálculo de
+    recargos por tramo horario (L-V, Sábado, Domingo, Turno Noche,
+    Feriados 150%/160%, Feriado Irrenunciable), selector de Período
+    (16 del mes anterior → 15 del mes de liquidación), tableros de
+    servicio (Lunes-Jueves, Viernes, Sábado, Domingo/Feriados) con
+    autocompletado de horario, pegado masivo de listado de servicios
+    por período, y exportación a Excel con detalle y resumen.
+
+  Para agregar una nueva versión: incrementa el número, agrega la fecha
+  y una línea breve de qué cambió, y actualiza el texto en <span id="appVersion">.
+  ═══════════════════════════════════════════════════════════════════════
+-->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -59,6 +77,14 @@ body {
   font-size: .78rem;
   color: var(--muted2);
   font-weight: 400;
+}
+.topbar-version {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: .68rem;
+  color: var(--muted);
+  letter-spacing: .03em;
+  white-space: nowrap;
 }
 
 /* ── LAYOUT ── */
@@ -433,6 +459,7 @@ select option { background: var(--surf3); }
   <span class="topbar-logo">CalculaHoras</span>
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Calculadora de recargos por turno</span>
+  <span class="topbar-version" id="appVersion">v1 · 20 Ago 2026</span>
 </div>
 
 <div class="wrapper">
