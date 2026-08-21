@@ -332,6 +332,64 @@ select option { background: var(--surf3); }
 }
 .liquidacion-note strong { color: var(--blue); }
 
+/* ── PASTE PANEL (pegar listado de servicios) ── */
+.paste-panel {
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf2);
+}
+.paste-panel-head {
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: .6rem;
+}
+.paste-panel-hint {
+  font-weight: 400;
+  color: var(--muted2);
+}
+#pegadoServicios {
+  width: 100%;
+  min-height: 110px;
+  background: var(--surf3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: .82rem;
+  line-height: 1.5;
+  padding: .7rem .85rem;
+  resize: vertical;
+  outline: none;
+}
+#pegadoServicios:focus { border-color: var(--blue); }
+
+#listadoResultado { margin-top: .8rem; }
+.listado-msg {
+  border-radius: 8px;
+  padding: .7rem .9rem;
+  font-size: .8rem;
+  line-height: 1.5;
+}
+.listado-msg.ok {
+  background: rgba(61,214,140,.08);
+  border: 1px solid rgba(61,214,140,.25);
+  color: var(--muted2);
+}
+.listado-msg.error {
+  background: rgba(248,113,113,.08);
+  border: 1px solid rgba(248,113,113,.3);
+  color: var(--muted2);
+}
+.listado-msg strong { color: var(--text); }
+.listado-msg .not-found-list {
+  margin-top: .5rem;
+  font-family: var(--mono);
+  font-size: .74rem;
+  color: var(--yellow);
+  line-height: 1.7;
+}
+
 /* ── ACTIONS BAR ── */
 .actions-bar {
   display: flex;
@@ -420,6 +478,19 @@ select option { background: var(--surf3); }
       <div class="card-head-icon" style="background:var(--green)"></div>
       <span class="card-head-title">Registro diario de turnos</span>
     </div>
+
+    <div class="paste-panel">
+      <div class="paste-panel-head">
+        Pegar listado de servicios <span class="paste-panel-hint">— un código por línea, en el mismo orden que los días del período. Usa "R" para los días de descanso.</span>
+      </div>
+      <textarea id="pegadoServicios" placeholder="R&#10;R&#10;52203&#10;52247&#10;R&#10;..."></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.6rem;">
+        <button class="btn btn-sm" onclick="limpiarListado()" style="background:var(--surf3);color:var(--muted2);border:1px solid var(--border)">Limpiar</button>
+        <button class="btn btn-sm" onclick="aplicarListado()" style="background:var(--green);color:#0d1117">Aplicar listado →</button>
+      </div>
+      <div id="listadoResultado"></div>
+    </div>
+
     <div class="days-header">
       <span>Fecha</span>
       <span>Tipo de día</span>
@@ -1254,6 +1325,84 @@ function onTipoChange(select) {
   const row = select.closest('.day-row');
   populateServicios(row);
   calcularFila(select);
+}
+
+// ── PEGAR LISTADO DE SERVICIOS ───────────────────────────────────────────
+// Cada línea del listado corresponde, en orden, a un día del período ya
+// generado. "R" (día de descanso) se salta sin tocar esa fila. Un código
+// sobrescribe siempre el valor que hubiera en esa fila.
+function aplicarListado() {
+  const textarea = document.getElementById('pegadoServicios');
+  const resultEl = document.getElementById('listadoResultado');
+  const rawText  = textarea.value;
+
+  if (!rawText.trim()) {
+    resultEl.innerHTML = '<div class="listado-msg error">Pega el listado de servicios antes de aplicar.</div>';
+    return;
+  }
+
+  // Separar por líneas, quitando solo líneas vacías al final (por saltos de línea sobrantes)
+  let lines = rawText.split('\n').map(l => l.trim());
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+
+  const rows = document.querySelectorAll('.day-row');
+  if (!rows.length) {
+    resultEl.innerHTML = '<div class="listado-msg error">Primero genera un período.</div>';
+    return;
+  }
+
+  // Validar que la cantidad de líneas coincida exactamente con los días del período
+  if (lines.length !== rows.length) {
+    resultEl.innerHTML = `
+      <div class="listado-msg error">
+        <strong>⚠ Desajuste de cantidad:</strong> el listado tiene <strong>${lines.length}</strong> línea(s),
+        pero el período generado tiene <strong>${rows.length}</strong> día(s).
+        Revisa el listado antes de aplicar — no se realizó ningún cambio.
+      </div>`;
+    return;
+  }
+
+  let aplicados = 0, saltados = 0;
+  const noEncontrados = [];
+
+  rows.forEach((row, i) => {
+    const line = lines[i];
+
+    // Línea vacía o "R" (descanso): saltar sin tocar la fila
+    if (!line || line.toUpperCase() === 'R') {
+      saltados++;
+      return;
+    }
+
+    const input = row.querySelector('.servicio-input');
+    input.value = line;
+    onServicioInput(input); // busca el código en el tablero correspondiente y completa entrada/salida
+
+    if (input.classList.contains('servicio-match')) {
+      aplicados++;
+    } else {
+      const fecha = row.querySelector('.day-date')?.textContent || '';
+      noEncontrados.push(`${fecha} — "${line}"`);
+    }
+  });
+
+  // Construir mensaje de resultado
+  let html = `<div class="listado-msg ok">
+    <strong>✓ Listado aplicado.</strong> ${aplicados} servicio(s) cargado(s) correctamente, ${saltados} día(s) de descanso salteado(s).`;
+
+  if (noEncontrados.length) {
+    html += `<div class="not-found-list">
+      ⚠ ${noEncontrados.length} código(s) no se encontraron en el tablero de servicios de su día — revísalos manualmente:<br>
+      ${noEncontrados.join('<br>')}
+    </div>`;
+  }
+  html += '</div>';
+  resultEl.innerHTML = html;
+}
+
+function limpiarListado() {
+  document.getElementById('pegadoServicios').value = '';
+  document.getElementById('listadoResultado').innerHTML = '';
 }
 
 // ── CALCULAR FILA INDIVIDUAL ─────────────────────────────────────────────
