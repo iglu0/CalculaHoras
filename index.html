@@ -388,14 +388,14 @@ select option { background: var(--surf3); }
     <div class="card-body">
       <div class="period-grid">
         <div class="field">
-          <label>Mes inicio (día 16)</label>
+          <label>Período</label>
           <select id="monthFrom">
-            <option value="0">Enero</option><option value="1">Febrero</option>
-            <option value="2">Marzo</option><option value="3">Abril</option>
-            <option value="4">Mayo</option><option value="5">Junio</option>
-            <option value="6">Julio</option><option value="7">Agosto</option>
-            <option value="8">Septiembre</option><option value="9">Octubre</option>
-            <option value="10">Noviembre</option><option value="11">Diciembre</option>
+            <option value="0">01-Enero</option><option value="1">02-Febrero</option>
+            <option value="2">03-Marzo</option><option value="3">04-Abril</option>
+            <option value="4">05-Mayo</option><option value="5">06-Junio</option>
+            <option value="6">07-Julio</option><option value="7">08-Agosto</option>
+            <option value="8">09-Septiembre</option><option value="9">10-Octubre</option>
+            <option value="10">11-Noviembre</option><option value="11">12-Diciembre</option>
           </select>
         </div>
         <div class="field">
@@ -1109,17 +1109,18 @@ function buildPeriod() {
   const month = parseInt(document.getElementById('monthFrom').value);
   const year  = parseInt(document.getElementById('yearFrom').value);
 
-  // Período: día 16 del mes seleccionado → día 15 del mes siguiente
-  const start = new Date(year, month, 16);
-  let endMonth = month + 1, endYear = year;
-  if (endMonth > 11) { endMonth = 0; endYear++; }
-  const end = new Date(endYear, endMonth, 15);
+  // El mes/año seleccionado representa el mes de LIQUIDACIÓN (fin del período).
+  // Período: día 16 del mes ANTERIOR → día 15 del mes seleccionado.
+  let startMonth = month - 1, startYear = year;
+  if (startMonth < 0) { startMonth = 11; startYear--; }
+  const start = new Date(startYear, startMonth, 16);
+  const end   = new Date(year, month, 15);
 
   // Mostrar rango
   document.getElementById('periodFrom').textContent =
-    `16 ${MESES[month]} ${year}`;
+    `16 ${MESES[startMonth]} ${startYear}`;
   document.getElementById('periodTo').textContent =
-    `15 ${MESES[endMonth]} ${endYear}`;
+    `15 ${MESES[month]} ${year}`;
   document.getElementById('periodDisplay').style.display = 'block';
 
   // Generar días
