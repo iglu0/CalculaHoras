@@ -21,6 +21,13 @@
     exportación a Excel (columna por día + bloque de referencia en
     el resumen).
 
+  v3 — 20 Ago 2026
+    Se agregó el link "🔍 Detalle de Servicios" en la barra superior,
+    que abre en pestaña nueva la página detalle-servicios.html — permite
+    consultar el detalle de maniobras/trenes de un servicio individual,
+    o de una semana completa (7 días), cargando los datos desde el
+    nuevo archivo detalles.js.
+
   Para agregar una nueva versión: incrementa el número, agrega la fecha
   y una línea breve de qué cambió, y actualiza el texto en <span id="appVersion">.
   ═══════════════════════════════════════════════════════════════════════
@@ -94,6 +101,17 @@ body {
   letter-spacing: .03em;
   white-space: nowrap;
 }
+.topbar-link {
+  font-size: .78rem;
+  color: var(--muted2);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .3rem .7rem;
+  transition: border-color .15s, color .15s;
+  white-space: nowrap;
+}
+.topbar-link:hover { border-color: var(--blue); color: var(--blue); }
 
 /* ── LAYOUT ── */
 .wrapper {
@@ -499,7 +517,8 @@ select option { background: var(--surf3); }
   <span class="topbar-logo">CalculaHoras</span>
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Calculadora de recargos por turno</span>
-  <span class="topbar-version" id="appVersion">v2 · 20 Ago 2026</span>
+  <a class="topbar-link" href="detalle-servicios.html" target="_blank" rel="noopener">🔍 Detalle de Servicios</a>
+  <span class="topbar-version" id="appVersion">v3 · 20 Ago 2026</span>
 </div>
 
 <div class="wrapper">

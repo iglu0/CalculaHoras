@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<!--
+  CalculaHoras — Detalle de Servicios
+  ═══════════════════════════════════════════════════════════════════════
+  CHANGELOG
+
+  v1 — 20 Ago 2026
+    Versión inicial. Consulta individual de un servicio (resumen +
+    maniobras/trenes cronológicos), y vista semanal (7 días) con carga
+    manual día a día o pegado masivo de listado. Datos cargados desde
+    detalles.js (4 tableros: Lunes-Jueves, Viernes, Sábado, Domingo y
+    Feriados), asociados a su código de documento oficial correspondiente.
+
+  v2 — 20 Ago 2026
+    Confirmado el significado de M=3 (vuelta y media) en el tipo de
+    maniobra, reemplazando la etiqueta genérica "Tipo 3".
+  ═══════════════════════════════════════════════════════════════════════
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detalle de Servicios — CalculaHoras</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0d1117;
+  --surf1:    #161b22;
+  --surf2:    #1c2230;
+  --surf3:    #222b3a;
+  --border:   #2a3548;
+  --border2:  #334060;
+  --text:     #e2e8f8;
+  --muted:    #5a6a8a;
+  --muted2:   #8094b8;
+  --blue:     #4f8ef7;
+  --green:    #3dd68c;
+  --yellow:   #f5c542;
+  --purple:   #a78bfa;
+  --red:      #f87171;
+  --orange:   #fb923c;
+  --deepred:  #ef4444;
+  --mono:     'IBM Plex Mono', monospace;
+  --sans:     'Inter', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  padding: 0 0 5rem;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  background: var(--surf1);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.topbar-logo { font-family: var(--mono); font-size: .85rem; font-weight: 600; color: var(--blue); letter-spacing: .05em; }
+.topbar-sep { color: var(--border2); }
+.topbar-sub { font-size: .78rem; color: var(--muted2); font-weight: 400; }
+.topbar-back {
+  font-size: .78rem;
+  color: var(--muted2);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .3rem .7rem;
+  transition: border-color .15s, color .15s;
+}
+.topbar-back:hover { border-color: var(--blue); color: var(--blue); }
+.topbar-version {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: .68rem;
+  color: var(--muted);
+  letter-spacing: .03em;
+  white-space: nowrap;
+}
+
+/* ── LAYOUT ── */
+.wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+/* ── CARDS ── */
+.card { background: var(--surf1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .85rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf2);
+}
+.card-head-icon { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); flex-shrink: 0; }
+.card-head-title { font-family: var(--mono); font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--muted2); }
+.card-body { padding: 1.2rem; }
+
+/* ── FIELDS ── */
+.field { display: flex; flex-direction: column; gap: .4rem; }
+.field label { font-size: .75rem; font-weight: 500; color: var(--muted2); letter-spacing: .04em; }
+select, input[type="text"], input[type="date"] {
+  background: var(--surf3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: .88rem;
+  padding: .55rem .75rem;
+  width: 100%;
+  appearance: none; -webkit-appearance: none;
+  outline: none;
+  transition: border-color .15s;
+}
+select:focus, input:focus { border-color: var(--blue); }
+select option { background: var(--surf3); }
+
+.btn {
+  padding: .55rem 1.2rem;
+  background: var(--blue);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: .85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .15s, transform .1s;
+}
+.btn:hover { opacity: .85; }
+.btn:active { transform: scale(.97); }
+.btn-sm { padding: .4rem .85rem; font-size: .78rem; border-radius: 6px; }
+
+/* ── CONSULTA INDIVIDUAL ── */
+.query-row { display: grid; grid-template-columns: 200px 1fr auto; gap: .8rem; align-items: end; }
+
+/* ── SERVICE DETAIL ── */
+.service-detail { margin-top: 1.2rem; display: none; }
+.service-summary {
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+.service-summary-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: .5rem;
+}
+.service-code { font-family: var(--mono); font-size: 1.3rem; font-weight: 600; color: var(--blue); }
+.service-schedule { font-family: var(--mono); font-size: .9rem; color: var(--green); }
+.service-board-tag {
+  font-family: var(--mono);
+  font-size: .68rem;
+  color: var(--muted2);
+  background: var(--surf3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: .15rem .5rem;
+}
+.service-detalle-text { font-size: .82rem; color: var(--muted2); line-height: 1.5; margin-top: .3rem; }
+.service-doc { font-family: var(--mono); font-size: .68rem; color: var(--muted); margin-top: .5rem; }
+
+.legs-table { width: 100%; border-collapse: collapse; }
+.legs-table th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: .65rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: .5rem .6rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf2);
+}
+.legs-table td {
+  padding: .55rem .6rem;
+  border-bottom: 1px solid var(--border);
+  font-size: .8rem;
+  vertical-align: middle;
+}
+.legs-table tr:last-child td { border-bottom: none; }
+.legs-table tr:hover td { background: rgba(79,142,247,.04); }
+.leg-tren { font-family: var(--mono); color: var(--text); font-weight: 500; }
+.leg-time { font-family: var(--mono); color: var(--muted2); }
+.leg-place { color: var(--text); }
+.leg-arrow { color: var(--muted); padding: 0 .3rem; }
+.leg-ruta {
+  font-family: var(--mono);
+  font-size: .68rem;
+  font-weight: 600;
+  padding: .1rem .4rem;
+  border-radius: 4px;
+}
+.leg-ruta.R { background: rgba(248,113,113,.15); color: var(--red); }
+.leg-ruta.V { background: rgba(61,214,140,.15); color: var(--green); }
+.leg-m {
+  font-family: var(--mono);
+  font-size: .7rem;
+  color: var(--muted2);
+}
+.leg-colacion { font-size: .74rem; color: var(--yellow); }
+.leg-colacion.none { color: var(--muted); }
+
+.not-found-box {
+  padding: 1rem 1.1rem;
+  background: rgba(248,113,113,.08);
+  border: 1px solid rgba(248,113,113,.25);
+  border-radius: 8px;
+  font-size: .85rem;
+  color: var(--muted2);
+  margin-top: 1rem;
+}
+
+/* ── WEEK VIEW ── */
+.week-mode-toggle { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.week-mode-btn {
+  flex: 1;
+  padding: .5rem .8rem;
+  background: var(--surf3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted2);
+  font-family: var(--sans);
+  font-size: .8rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all .15s;
+}
+.week-mode-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+.week-start-row { display: grid; grid-template-columns: 200px auto; gap: .8rem; align-items: end; margin-bottom: 1rem; }
+
+.week-days-grid { display: flex; flex-direction: column; gap: .6rem; margin-bottom: 1rem; }
+.week-day-row {
+  display: grid;
+  grid-template-columns: 100px 140px 1fr;
+  gap: .7rem;
+  align-items: center;
+  padding: .6rem .8rem;
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.week-day-date { font-family: var(--mono); font-size: .78rem; color: var(--text); }
+.week-day-name { font-size: .7rem; color: var(--muted2); margin-top: .1rem; }
+
+#pegadoServiciosSemana {
+  width: 100%;
+  min-height: 100px;
+  background: var(--surf3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: .82rem;
+  line-height: 1.5;
+  padding: .7rem .85rem;
+  resize: vertical;
+  outline: none;
+  margin-bottom: .8rem;
+}
+#pegadoServiciosSemana:focus { border-color: var(--blue); }
+
+.week-results { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.2rem; }
+.week-day-card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.week-day-card-head {
+  padding: .7rem 1rem;
+  background: var(--surf2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.week-day-card-title { font-family: var(--mono); font-size: .85rem; color: var(--text); }
+.week-day-card-sub { font-size: .72rem; color: var(--muted2); margin-top: .1rem; }
+.week-day-card-body { padding: 1rem; }
+
+.listado-msg {
+  border-radius: 8px;
+  padding: .7rem .9rem;
+  font-size: .8rem;
+  line-height: 1.5;
+  margin-top: .8rem;
+}
+.listado-msg.ok { background: rgba(61,214,140,.08); border: 1px solid rgba(61,214,140,.25); color: var(--muted2); }
+.listado-msg.error { background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3); color: var(--muted2); }
+.listado-msg strong { color: var(--text); }
+
+@media (max-width: 700px) {
+  .query-row { grid-template-columns: 1fr; }
+  .week-start-row { grid-template-columns: 1fr; }
+  .week-day-row { grid-template-columns: 1fr; gap: .3rem; }
+  .legs-table { font-size: .74rem; }
+  .legs-table th, .legs-table td { padding: .4rem .4rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-logo">CalculaHoras</span>
+  <span class="topbar-sep">·</span>
+  <span class="topbar-sub">Detalle de Servicios</span>
+  <a class="topbar-back" href="index.html">← Volver a la calculadora</a>
+  <span class="topbar-version" id="appVersion">v2 · 20 Ago 2026</span>
+</div>
+
+<div class="wrapper">
+
+  <!-- CONSULTA INDIVIDUAL -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon"></div>
+      <span class="card-head-title">Consulta individual</span>
+    </div>
+    <div class="card-body">
+      <div class="query-row">
+        <div class="field">
+          <label>Tablero</label>
+          <select id="tableroIndividual" onchange="onTableroIndividualChange()">
+            <option value="monday_thursday">Lunes a Jueves</option>
+            <option value="friday">Viernes</option>
+            <option value="saturday">Sábado</option>
+            <option value="sunday_holiday">Domingo y Feriados</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Código de servicio</label>
+          <input type="text" id="servicioIndividual" list="dl-individual" placeholder="Ej: 51101" autocomplete="off">
+          <datalist id="dl-individual"></datalist>
+        </div>
+        <button class="btn" onclick="consultarServicio()">Consultar →</button>
+      </div>
+
+      <div class="service-detail" id="serviceDetail"></div>
+    </div>
+  </div>
+
+  <!-- VISTA SEMANAL -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon" style="background:var(--green)"></div>
+      <span class="card-head-title">Vista semanal</span>
+    </div>
+    <div class="card-body">
+
+      <div class="week-start-row">
+        <div class="field">
+          <label>Fecha de inicio de la semana</label>
+          <input type="date" id="weekStart">
+        </div>
+        <button class="btn" onclick="buildWeek()" style="background:var(--green);color:#0d1117">Generar semana →</button>
+      </div>
+
+      <div id="weekConfigSection" style="display:none">
+
+        <div class="week-mode-toggle">
+          <div class="week-mode-btn active" id="modeManualBtn" onclick="setWeekMode('manual')">Elegir cada día</div>
+          <div class="week-mode-btn" id="modePasteBtn" onclick="setWeekMode('paste')">Pegar listado (7 líneas)</div>
+        </div>
+
+        <div id="weekManualSection">
+          <div class="week-days-grid" id="weekDaysGrid"></div>
+        </div>
+
+        <div id="weekPasteSection" style="display:none">
+          <textarea id="pegadoServiciosSemana" placeholder="51101&#10;51102&#10;R&#10;52247&#10;51105&#10;R&#10;R"></textarea>
+        </div>
+
+        <button class="btn btn-sm" onclick="verDetalleSemana()" style="background:var(--green);color:#0d1117">Ver detalle semana →</button>
+        <div id="weekListadoResultado"></div>
+      </div>
+
+      <div class="week-results" id="weekResults"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="tableros.js"></script>
+<script src="detalles.js"></script>
+<script>
+const DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+
+const BOARD_LABELS = {
+  monday_thursday: 'Lunes a Jueves',
+  friday: 'Viernes',
+  saturday: 'Sábado',
+  sunday_holiday: 'Domingo y Feriados',
+};
+
+const M_LABELS = {
+  0: 'Maniobra',
+  1: 'Media vuelta',
+  2: 'Vuelta entera',
+  3: 'Vuelta y media',
+};
+
+// ── HELPERS DE DATOS ─────────────────────────────────────────────────────
+function getActiveDetalleVersion(boardKey, dateStr) {
+  const versions = DETALLES[boardKey] || [];
+  const date = dateStr || new Date().toISOString().slice(0, 10);
+  for (const v of versions) {
+    if (date >= v.vigenciaDesde && (!v.vigenciaHasta || date <= v.vigenciaHasta)) return v;
+  }
+  return versions.length ? versions[versions.length - 1] : null;
+}
+
+function defaultBoardForDate(date) {
+  const dow = date.getDay();
+  if (dow === 0) return 'sunday_holiday';
+  if (dow === 6) return 'saturday';
+  if (dow === 5) return 'friday';
+  return 'monday_thursday';
+}
+
+// ── CONSULTA INDIVIDUAL ──────────────────────────────────────────────────
+function populateIndividualDatalist() {
+  const boardKey = document.getElementById('tableroIndividual').value;
+  const version  = getActiveDetalleVersion(boardKey, null);
+  const datalist = document.getElementById('dl-individual');
+  if (!version) { datalist.innerHTML = ''; return; }
+  datalist.innerHTML = version.servicios.map(s =>
+    `<option value="${s.codigo}">${s.entrada} – ${s.salida}</option>`
+  ).join('');
+}
+
+function onTableroIndividualChange() {
+  populateIndividualDatalist();
+}
+
+function renderServiceDetailHTML(boardKey, codigo, dateForVersion) {
+  const version = getActiveDetalleVersion(boardKey, dateForVersion);
+  if (!version) {
+    return `<div class="not-found-box">No hay datos cargados para el tablero <strong>${BOARD_LABELS[boardKey]}</strong>.</div>`;
+  }
+  const servicio = version.servicios.find(s => s.codigo === codigo);
+  const legs = version.trenes[codigo];
+
+  if (!servicio && !legs) {
+    return `<div class="not-found-box">El servicio <strong>${codigo}</strong> no se encontró en el tablero <strong>${BOARD_LABELS[boardKey]}</strong>.</div>`;
+  }
+
+  let html = '<div class="service-summary">';
+  html += '<div class="service-summary-top">';
+  html += `<span class="service-code">${codigo}</span>`;
+  if (servicio) html += `<span class="service-schedule">${servicio.entrada} → ${servicio.salida}</span>`;
+  html += `<span class="service-board-tag">${BOARD_LABELS[boardKey]}</span>`;
+  html += '</div>';
+  if (servicio && servicio.detalle) html += `<div class="service-detalle-text">${servicio.detalle}</div>`;
+  html += `<div class="service-doc">Documento: ${version.codigoDocumento}</div>`;
+  html += '</div>';
+
+  if (legs && legs.length) {
+    html += '<table class="legs-table"><thead><tr>';
+    html += '<th>Tren</th><th>Ruta</th><th>Recorrido</th><th>Horario</th><th>Tipo</th><th>Colación</th>';
+    html += '</tr></thead><tbody>';
+    legs.forEach(leg => {
+      const rutaHtml = leg.ruta ? `<span class="leg-ruta ${leg.ruta}">${leg.ruta}</span>` : '<span class="leg-m">—</span>';
+      const mLabel = (leg.m !== null && leg.m !== undefined) ? (M_LABELS[leg.m] || `Tipo ${leg.m}`) : '—';
+      const colacionOk = leg.colacion && leg.colacion !== '-';
+      const colacionHtml = colacionOk
+        ? `<span class="leg-colacion">${leg.colacion}</span>`
+        : `<span class="leg-colacion none">Sin colación</span>`;
+      html += `<tr>
+        <td class="leg-tren">${leg.tren ?? '—'}</td>
+        <td>${rutaHtml}</td>
+        <td class="leg-place">${leg.lugarIni ?? '—'} <span class="leg-arrow">→</span> ${leg.lugarFin ?? '—'}</td>
+        <td class="leg-time">${leg.horaIni ?? '—'} – ${leg.horaFin ?? '—'}</td>
+        <td class="leg-m">${mLabel}</td>
+        <td>${colacionHtml}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="not-found-box">No hay maniobras registradas para este servicio.</div>';
+  }
+
+  return html;
+}
+
+function consultarServicio() {
+  const boardKey = document.getElementById('tableroIndividual').value;
+  const codigo   = document.getElementById('servicioIndividual').value.trim();
+  const detailEl = document.getElementById('serviceDetail');
+
+  if (!codigo) {
+    detailEl.innerHTML = '<div class="not-found-box">Ingresa un código de servicio.</div>';
+    detailEl.style.display = 'block';
+    return;
+  }
+
+  detailEl.innerHTML = renderServiceDetailHTML(boardKey, codigo, null);
+  detailEl.style.display = 'block';
+}
+
+// ── VISTA SEMANAL ─────────────────────────────────────────────────────────
+let weekMode = 'manual';
+
+function setWeekMode(mode) {
+  weekMode = mode;
+  document.getElementById('modeManualBtn').classList.toggle('active', mode === 'manual');
+  document.getElementById('modePasteBtn').classList.toggle('active', mode === 'paste');
+  document.getElementById('weekManualSection').style.display = mode === 'manual' ? 'block' : 'none';
+  document.getElementById('weekPasteSection').style.display  = mode === 'paste'  ? 'block' : 'none';
+}
+
+function buildWeek() {
+  const startVal = document.getElementById('weekStart').value;
+  if (!startVal) { alert('Selecciona una fecha de inicio.'); return; }
+
+  const start = new Date(startVal + 'T12:00:00');
+  const grid = document.getElementById('weekDaysGrid');
+  grid.innerHTML = '';
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const dow = d.getDay();
+    const dayKey = d.toISOString().slice(0, 10);
+    const boardDef = defaultBoardForDate(d);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const datalistId = 'dl-week-' + dayKey.replace(/-/g, '');
+
+    const boardOpts = Object.keys(BOARD_LABELS).map(k =>
+      `<option value="${k}"${k === boardDef ? ' selected' : ''}>${BOARD_LABELS[k]}</option>`
+    ).join('');
+
+    const row = document.createElement('div');
+    row.className = 'week-day-row';
+    row.dataset.date = dayKey;
+    row.innerHTML = `
+      <div>
+        <div class="week-day-date">${dd}/${mm}/${d.getFullYear()}</div>
+        <div class="week-day-name">${DIAS_SEMANA[dow]}</div>
+      </div>
+      <select class="week-tablero-sel" onchange="populateWeekDatalist(this)">${boardOpts}</select>
+      <div>
+        <input type="text" class="week-servicio-input" list="${datalistId}" placeholder="Código de servicio" autocomplete="off">
+        <datalist id="${datalistId}"></datalist>
+      </div>
+    `;
+    grid.appendChild(row);
+    populateWeekDatalist(row.querySelector('.week-tablero-sel'));
+  }
+
+  document.getElementById('weekConfigSection').style.display = 'block';
+  document.getElementById('weekResults').innerHTML = '';
+  document.getElementById('weekListadoResultado').innerHTML = '';
+}
+
+function populateWeekDatalist(select) {
+  const row = select.closest('.week-day-row');
+  const boardKey = select.value;
+  const dateStr = row.dataset.date;
+  const version = getActiveDetalleVersion(boardKey, dateStr);
+  const datalist = row.querySelector('datalist');
+  datalist.innerHTML = version ? version.servicios.map(s =>
+    `<option value="${s.codigo}">${s.entrada} – ${s.salida}</option>`
+  ).join('') : '';
+}
+
+function verDetalleSemana() {
+  const rows = document.querySelectorAll('.week-day-row');
+  if (!rows.length) { alert('Primero genera la semana.'); return; }
+
+  const resultEl = document.getElementById('weekListadoResultado');
+  resultEl.innerHTML = '';
+
+  // Si el modo es "pegar listado", primero distribuir el listado en los inputs
+  if (weekMode === 'paste') {
+    const raw = document.getElementById('pegadoServiciosSemana').value;
+    let lines = raw.split('\n').map(l => l.trim());
+    while (lines.length && lines[lines.length - 1] === '') lines.pop();
+
+    if (lines.length !== rows.length) {
+      resultEl.innerHTML = `<div class="listado-msg error">
+        <strong>⚠ Desajuste de cantidad:</strong> el listado tiene <strong>${lines.length}</strong> línea(s),
+        pero la semana tiene <strong>${rows.length}</strong> día(s). Revisa el listado — no se aplicó nada.
+      </div>`;
+      return;
+    }
+
+    rows.forEach((row, i) => {
+      const line = lines[i];
+      const input = row.querySelector('.week-servicio-input');
+      if (!line || line.toUpperCase() === 'R') {
+        input.value = '';
+      } else {
+        input.value = line;
+      }
+    });
+  }
+
+  // Renderizar el detalle de cada día
+  const resultsCont = document.getElementById('weekResults');
+  resultsCont.innerHTML = '';
+
+  rows.forEach(row => {
+    const dateStr  = row.dataset.date;
+    const boardKey = row.querySelector('.week-tablero-sel').value;
+    const codigo   = row.querySelector('.week-servicio-input').value.trim();
+    const d        = new Date(dateStr + 'T12:00:00');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const fechaFmt = `${dd}/${mm}/${d.getFullYear()}`;
+    const diaNombre = DIAS_SEMANA[d.getDay()];
+
+    const card = document.createElement('div');
+    card.className = 'week-day-card';
+
+    let bodyHtml;
+    if (!codigo) {
+      bodyHtml = '<div class="not-found-box">Día de descanso — sin servicio asignado.</div>';
+    } else {
+      bodyHtml = renderServiceDetailHTML(boardKey, codigo, dateStr);
+    }
+
+    card.innerHTML = `
+      <div class="week-day-card-head">
+        <div>
+          <div class="week-day-card-title">${fechaFmt} — ${diaNombre}</div>
+          <div class="week-day-card-sub">${BOARD_LABELS[boardKey]}</div>
+        </div>
+      </div>
+      <div class="week-day-card-body">${bodyHtml}</div>
+    `;
+    resultsCont.appendChild(card);
+  });
+
+  resultsCont.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+(function init() {
+  populateIndividualDatalist();
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('weekStart').value = today;
+})();
+</script>
+</body>
+</html>
