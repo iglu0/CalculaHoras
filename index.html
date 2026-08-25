@@ -28,6 +28,12 @@
     o de una semana completa (7 días), cargando los datos desde el
     nuevo archivo detalles.js.
 
+  v4 — 20 Ago 2026
+    Corregido bug: al generar un período que cruza el cambio de horario
+    de verano/invierno de Chile (ej. principios de septiembre o abril),
+    el último día del período no se generaba. Se ancla el cálculo de
+    fechas al mediodía en vez de medianoche para evitar el desfase.
+
   Para agregar una nueva versión: incrementa el número, agrega la fecha
   y una línea breve de qué cambió, y actualiza el texto en <span id="appVersion">.
   ═══════════════════════════════════════════════════════════════════════
@@ -518,7 +524,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Calculadora de recargos por turno</span>
   <a class="topbar-link" href="detalle-servicios.html" target="_blank" rel="noopener">🔍 Detalle de Servicios</a>
-  <span class="topbar-version" id="appVersion">v3 · 20 Ago 2026</span>
+  <span class="topbar-version" id="appVersion">v4 · 20 Ago 2026</span>
 </div>
 
 <div class="wrapper">
@@ -869,8 +875,12 @@ function buildPeriod() {
   // Período: día 16 del mes ANTERIOR → día 15 del mes seleccionado.
   let startMonth = month - 1, startYear = year;
   if (startMonth < 0) { startMonth = 11; startYear--; }
-  const start = new Date(startYear, startMonth, 16);
-  const end   = new Date(year, month, 15);
+  // Se ancla la hora al mediodía (12:00) en vez de medianoche. Esto evita que
+  // el cambio de horario de verano/invierno de Chile (que ocurre típicamente
+  // a principios de septiembre y abril) desplace la fecha un día, ya que un
+  // salto de 1 hora nunca cruza la medianoche si se parte desde el mediodía.
+  const start = new Date(startYear, startMonth, 16, 12, 0, 0);
+  const end   = new Date(year, month, 15, 12, 0, 0);
 
   // Mostrar rango
   document.getElementById('periodFrom').textContent =
