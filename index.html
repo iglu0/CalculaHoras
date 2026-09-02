@@ -34,6 +34,13 @@
     el último día del período no se generaba. Se ancla el cálculo de
     fechas al mediodía en vez de medianoche para evitar el desfase.
 
+  v5 — 20 Ago 2026
+    tableros.js regenerado desde archivos fuente mejorados: encabezados
+    en fila fija, metadatos estructurados (codigoDocumento, vigencia,
+    versionExtractor) leídos directamente del Excel en vez de hardcodeados,
+    convención "N/A" para campos que no aplican, y eliminado un servicio
+    duplicado (512R5) presente en el documento original.
+
   Para agregar una nueva versión: incrementa el número, agrega la fecha
   y una línea breve de qué cambió, y actualiza el texto en <span id="appVersion">.
   ═══════════════════════════════════════════════════════════════════════
@@ -524,7 +531,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Calculadora de recargos por turno</span>
   <a class="topbar-link" href="detalle-servicios.html" target="_blank" rel="noopener">🔍 Detalle de Servicios</a>
-  <span class="topbar-version" id="appVersion">v4 · 20 Ago 2026</span>
+  <span class="topbar-version" id="appVersion">v5 · 20 Ago 2026</span>
 </div>
 
 <div class="wrapper">

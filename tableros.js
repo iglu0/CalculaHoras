@@ -1,41 +1,30 @@
 // ═══════════════════════════════════════════════════════════════════════
 // TABLEROS DE SERVICIO — CalculaHoras
 // ═══════════════════════════════════════════════════════════════════════
-// Este archivo contiene los 4 tableros de servicio (Lunes a Jueves, Viernes,
-// Sábado, Domingo y Feriados), cargados por index.html mediante:
-//   <script src="tableros.js"></script>
+// Cargado por index.html mediante <script src="tableros.js"></script>.
 //
 // Cada tablero puede tener MÚLTIPLES VERSIONES con distinta vigencia
-// (vigenciaDesde / vigenciaHasta). Al buscar un servicio para una fecha
-// determinada, se usa la versión cuya vigencia cubre esa fecha. Esto permite
-// que, cuando el tablero cambie durante el año, los turnos ya calculados en
-// meses anteriores sigan usando el tablero antiguo (correcto), mientras que
-// los turnos nuevos usan el tablero vigente. vigenciaHasta: null significa
-// "vigente hasta nuevo aviso".
+// (vigenciaDesde / vigenciaHasta, formato AAAA-MM-DD). Al buscar un
+// servicio para una fecha determinada, se usa la versión cuya vigencia
+// cubre esa fecha. vigenciaHasta: null = vigente hasta nuevo aviso.
 //
-// "codigoDocumento" identifica el documento oficial (PDF) del que proviene
-// ese tablero, para trazabilidad — se muestra en la web y en el Excel
-// exportado.
+// codigoDocumento identifica el documento oficial del que proviene el
+// tablero. versionExtractor indica la versión del script que generó el
+// Excel origen (dato informativo, no afecta el cálculo).
 //
-// CÓMO ACTUALIZAR UN TABLERO CUANDO CAMBIE:
-//   1. Cierra la versión anterior agregando su "vigenciaHasta" (la fecha
-//      del último día en que rigió).
-//   2. Agrega una nueva versión con su "vigenciaDesde", su nuevo
-//      "codigoDocumento", y el listado de servicios actualizado.
+// Convención de datos: "N/A" = el campo no aplica para ese registro.
 //
-// CÓMO AGREGAR UN TABLERO COMPLETAMENTE NUEVO (una categoría distinta a las
-// 4 actuales): agrega una nueva clave a este objeto con la misma estructura.
-// Además, hay que decirle a index.html en qué situación usar ese tablero
-// nuevo (función getBoardCategory) — eso sí requiere un ajuste en index.html,
-// no solo en este archivo.
+// CÓMO ACTUALIZAR: cierra la versión anterior con su "vigenciaHasta" y
+// agrega una nueva versión con los datos actualizados.
 // ═══════════════════════════════════════════════════════════════════════
 
 const TABLEROS = {
   monday_thursday: [
     {
-      codigoDocumento: 'DL5-003-2026-38-321,5-2;40',
-      vigenciaDesde: '2024-01-01',
+      codigoDocumento: "DL5-003-2026-38-321,5-2;40",
+      vigenciaDesde: "2026-08-31",
       vigenciaHasta: null,
+      versionExtractor: "1.8.0",
       servicios: [
         { codigo: "51101", entrada: "05:14", salida: "13:14" },
         { codigo: "51102", entrada: "05:05", salida: "13:05" },
@@ -163,17 +152,20 @@ const TABLEROS = {
         { codigo: "522R5", entrada: "14:20", salida: "22:20" },
         { codigo: "513MN", entrada: "21:55", salida: "05:55" },
         { codigo: "523MN", entrada: "21:55", salida: "05:55" },
-        { codigo: "531MC", entrada: "04:45", salida: "12:45" },
+        { codigo: "513MN-01", entrada: "21:55", salida: "05:55" },
+        { codigo: "523MN-01", entrada: "21:55", salida: "05:55" },
+        { codigo: "531MC", entrada: "05:00", salida: "13:00" },
         { codigo: "532MC", entrada: "14:20", salida: "22:20" },
-        { codigo: "533MC", entrada: "22:30", salida: "06:30" },
+        { codigo: "533MC", entrada: "22:00", salida: "06:00" },
       ],
     },
   ],
   friday: [
     {
-      codigoDocumento: 'DV5-004-2026-38-320,5-2;40',
-      vigenciaDesde: '2024-01-01',
+      codigoDocumento: "DV5-004-2026-38-320,5-2;40",
+      vigenciaDesde: "2026-09-04",
       vigenciaHasta: null,
+      versionExtractor: "1.8.0",
       servicios: [
         { codigo: "51101", entrada: "05:17", salida: "13:17" },
         { codigo: "51102", entrada: "05:39", salida: "13:39" },
@@ -302,6 +294,8 @@ const TABLEROS = {
         { codigo: "522R5", entrada: "14:20", salida: "22:20" },
         { codigo: "513MN", entrada: "21:55", salida: "05:55" },
         { codigo: "523MN", entrada: "21:55", salida: "05:55" },
+        { codigo: "513MN-01", entrada: "21:55", salida: "05:55" },
+        { codigo: "523MN-01", entrada: "21:55", salida: "05:55" },
         { codigo: "531MC", entrada: "05:00", salida: "13:00" },
         { codigo: "532MC", entrada: "14:20", salida: "22:20" },
         { codigo: "533MC", entrada: "22:00", salida: "06:00" },
@@ -310,9 +304,10 @@ const TABLEROS = {
   ],
   saturday: [
     {
-      codigoDocumento: 'DS5-001-2026-23-204-4;48',
-      vigenciaDesde: '2024-01-01',
+      codigoDocumento: "DS5-001-2026-23-204-4;48",
+      vigenciaDesde: "2026-01-10",
       vigenciaHasta: null,
+      versionExtractor: "1.8.0",
       servicios: [
         { codigo: "51101", entrada: "06:18", salida: "14:18" },
         { codigo: "51102", entrada: "06:05", salida: "14:05" },
@@ -407,9 +402,10 @@ const TABLEROS = {
   ],
   sunday_holiday: [
     {
-      codigoDocumento: 'DF5-001-2026-16-147-6;40',
-      vigenciaDesde: '2024-01-01',
+      codigoDocumento: "DF5-001-2026-16-147-6;40",
+      vigenciaDesde: "2026-02-08",
       vigenciaHasta: null,
+      versionExtractor: "1.8.0",
       servicios: [
         { codigo: "51101", entrada: "07:01", salida: "15:01" },
         { codigo: "51102", entrada: "07:09", salida: "15:09" },
@@ -473,6 +469,8 @@ const TABLEROS = {
         { codigo: "52442", entrada: "09:43", salida: "17:43" },
         { codigo: "513MN", entrada: "23:00", salida: "07:00" },
         { codigo: "523MN", entrada: "23:00", salida: "07:00" },
+        { codigo: "513MN01", entrada: "23:00", salida: "07:00" },
+        { codigo: "523MN02", entrada: "23:00", salida: "07:00" },
         { codigo: "531MC", entrada: "06:30", salida: "14:30" },
         { codigo: "532MC", entrada: "14:30", salida: "22:30" },
         { codigo: "533MC", entrada: "22:30", salida: "06:30" },
