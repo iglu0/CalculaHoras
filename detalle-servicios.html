@@ -29,6 +29,11 @@
     discrepancias en 4 tableros × código/entrada/salida): ambos se
     generan desde una misma lectura del Excel de origen en
     generar_tableros.py, así que no hay riesgo de que diverjan.
+
+  v5 — 6 Sep 2026
+    Las columnas "Ruta" y "Colación" ahora muestran "-" en vez de "N/A"
+    cuando el dato viene así desde detalles.js (campo literal "N/A" del
+    Excel de origen).
   ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="es">
@@ -339,7 +344,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Detalle de Servicios</span>
   <a class="topbar-back" href="index.html">← Volver a la calculadora</a>
-  <span class="topbar-version" id="appVersion">v3 · 20 Ago 2026</span>
+  <span class="topbar-version" id="appVersion">v5 · 6 Sep 2026</span>
 </div>
 
 <div class="wrapper">
@@ -492,12 +497,14 @@ function renderServiceDetailHTML(boardKey, codigo, dateForVersion) {
     html += '<th>Tren</th><th>Ruta</th><th>Recorrido</th><th>Horario</th><th>Tipo</th><th>Colación</th>';
     html += '</tr></thead><tbody>';
     legs.forEach(leg => {
-      const rutaHtml = leg.ruta ? `<span class="leg-ruta ${leg.ruta}">${leg.ruta}</span>` : '<span class="leg-m">—</span>';
+      const rutaHtml = leg.ruta === 'N/A' ? '<span class="leg-m">-</span>'
+        : leg.ruta ? `<span class="leg-ruta ${leg.ruta}">${leg.ruta}</span>` : '<span class="leg-m">—</span>';
       const mLabel = (leg.m !== null && leg.m !== undefined) ? (M_LABELS[leg.m] || `Tipo ${leg.m}`) : '—';
-      const colacionOk = leg.colacion && leg.colacion !== '-';
-      const colacionHtml = colacionOk
-        ? `<span class="leg-colacion">${leg.colacion}</span>`
-        : `<span class="leg-colacion none">Sin colación</span>`;
+      const colacionOk = leg.colacion && leg.colacion !== '-' && leg.colacion !== 'N/A';
+      const colacionHtml = leg.colacion === 'N/A' ? '<span class="leg-colacion none">-</span>'
+        : colacionOk
+          ? `<span class="leg-colacion">${leg.colacion}</span>`
+          : `<span class="leg-colacion none">Sin colación</span>`;
       html += `<tr>
         <td class="leg-tren">${leg.tren ?? '—'}</td>
         <td>${rutaHtml}</td>

@@ -41,6 +41,17 @@
     convención "N/A" para campos que no aplican, y eliminado un servicio
     duplicado (512R5) presente en el documento original.
 
+  v6 — 6 Sep 2026
+    Nuevo tipo de día "Especial": recargo 150% fijo e independiente del
+    servicio/horario cargado ese día — siempre cuenta 06:40 (400 min),
+    sin importar la duración real del turno. El servicio y horario de la
+    fila igual se completan (para el tablero correspondiente al día real
+    de la semana), pero solo quedan como referencia. Además: si un turno
+    que cruza medianoche entra a un día marcado "Especial", las horas que
+    caen ahí NO toman el 150% fijo — toman el recargo que corresponde al
+    día calendario real (L-V/Sáb/Dom) en ese horario, como si "Especial"
+    no estuviera seleccionado.
+
   Para agregar una nueva versión: incrementa el número, agrega la fecha
   y una línea breve de qué cambió, y actualiza el texto en <span id="appVersion">.
   ═══════════════════════════════════════════════════════════════════════
@@ -531,7 +542,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Calculadora de recargos por turno</span>
   <a class="topbar-link" href="detalle-servicios.html" target="_blank" rel="noopener">🔍 Detalle de Servicios</a>
-  <span class="topbar-version" id="appVersion">v5 · 20 Ago 2026</span>
+  <span class="topbar-version" id="appVersion">v6 · 6 Sep 2026</span>
 </div>
 
 <div class="wrapper">
@@ -677,7 +688,15 @@ const TRAMOS = {
   holiday_mandatory: [
     { start: toMin(0,0),  end: toMin(23,59), pct: 200 },
   ],
+  especial: [
+    { start: toMin(0,0),  end: toMin(23,59), pct: 150 },
+  ],
 };
+
+// "Especial": recargo 150% fijo, y sin importar el servicio/horario real
+// cargado ese día, siempre se cuentan estas horas fijas (06:40 = 400 min).
+// Ver calcularFila()/calcularTodo() donde se aplica este override.
+const ESPECIAL_MINUTOS = 400; // 6h40m
 
 const TIPO_OPTIONS = [
   { value: 'weekday',           label: 'Lunes – Viernes' },
@@ -687,6 +706,7 @@ const TIPO_OPTIONS = [
   { value: 'holiday150',        label: 'Feriados 150%' },
   { value: 'holiday160',        label: 'Feriados 160%' },
   { value: 'holiday_mandatory', label: 'Feriado Irrenunciable' },
+  { value: 'especial',          label: 'Especial' },
 ];
 
 // Feriados 160%: fechas específicas que reciben automáticamente este tipo de día
@@ -813,11 +833,27 @@ function getNextRowTipo(row) {
 // del turno aunque cruce a otro día calendario.
 const TIPOS_CALENDARIO = ['weekday', 'saturday', 'sunday'];
 
+// Tipo de día "de calendario real" (weekday/saturday/sunday) del día SIGUIENTE
+// a una fila, según el día de la semana real de esa fecha — ignorando qué
+// tipo esté seleccionado en el dropdown ese día. Se usa para el caso en que
+// el día siguiente es "Especial" (ver resolveTipo2).
+function getNextCalendarTipo(row) {
+  const dateStr = row.dataset.date;
+  const d = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
+  d.setDate(d.getDate() + 1);
+  return defaultTipo(d);
+}
+
 // Resuelve el tipo2 (tramo aplicable después de medianoche) según corresponda
 function resolveTipo2(tipo1, row, crossesMidnight) {
   if (!crossesMidnight) return tipo1;
   if (!TIPOS_CALENDARIO.includes(tipo1)) return tipo1; // Turno Noche / Feriado / Feriado Irrenunciable: mismo tramo todo el turno
-  return getNextRowTipo(row);
+  const nextTipo = getNextRowTipo(row);
+  // Si el día siguiente es "Especial", las horas que caen ahí por arrastre del
+  // turno del día anterior NO toman el 150% fijo de "Especial": toman el
+  // recargo que corresponde al día calendario real (L-V/Sáb/Dom) en ese horario.
+  if (nextTipo === 'especial') return getNextCalendarTipo(row);
+  return nextTipo;
 }
 
 // ── CALCULAR UN TURNO (soporta cruce de medianoche con distinto tipo de día) ──
@@ -1109,6 +1145,20 @@ function limpiarListado() {
   document.getElementById('listadoResultado').innerHTML = '';
 }
 
+// ── CALCULAR HORAS DE UNA FILA (comparte lógica entre calcularFila y calcularTodo) ──
+function calcularHorasFila(tipo1, row, entrada, salida) {
+  if (tipo1 === 'especial') {
+    // "Especial": 150% fijo e independiente del servicio/horario cargado —
+    // siempre se cuentan 06:40 (ESPECIAL_MINUTOS), sin importar entrada/salida.
+    return { acc: { 150: ESPECIAL_MINUTOS }, totalMin: ESPECIAL_MINUTOS };
+  }
+  const startMin = parseTime(entrada);
+  const endMin   = parseTime(salida);
+  const crossesMidnight = endMin <= startMin;
+  const tipo2 = resolveTipo2(tipo1, row, crossesMidnight);
+  return calcTurno(tipo1, tipo2, startMin, endMin);
+}
+
 // ── CALCULAR FILA INDIVIDUAL ─────────────────────────────────────────────
 function calcularFila(el) {
   const row     = el.closest('.day-row');
@@ -1125,12 +1175,7 @@ function calcularFila(el) {
     return;
   }
 
-  const startMin = parseTime(entrada);
-  const endMin   = parseTime(salida);
-  const crossesMidnight = endMin <= startMin;
-  const tipo2 = resolveTipo2(tipo1, row, crossesMidnight);
-
-  const { acc, totalMin } = calcTurno(tipo1, tipo2, startMin, endMin);
+  const { acc, totalMin } = calcularHorasFila(tipo1, row, entrada, salida);
   resultEl.innerHTML = renderDayResult(acc, totalMin);
 
   // Guardar datos para el resumen
@@ -1147,12 +1192,8 @@ function calcularTodo() {
     const entrada = row.querySelector('.hora-entrada').value;
     const salida  = row.querySelector('.hora-salida').value;
     if (entrada && salida) {
-      const tipo1    = row.querySelector('.tipo-sel').value;
-      const startMin = parseTime(entrada);
-      const endMin   = parseTime(salida);
-      const crossesMidnight = endMin <= startMin;
-      const tipo2 = resolveTipo2(tipo1, row, crossesMidnight);
-      const { acc, totalMin } = calcTurno(tipo1, tipo2, startMin, endMin);
+      const tipo1 = row.querySelector('.tipo-sel').value;
+      const { acc, totalMin } = calcularHorasFila(tipo1, row, entrada, salida);
       row.querySelector('.day-result').innerHTML = renderDayResult(acc, totalMin);
       row.dataset.acc   = JSON.stringify(acc);
       row.dataset.total = totalMin;
@@ -1193,7 +1234,7 @@ function calcularTodo() {
     { key: 'r40',     cls: 's-40',     label: 'Horas con recargo 40%',     sub: 'L–V 05:01–07:00 · 21:00–23:59 · Sáb 05:01–23:59' },
     { key: 'r50',     cls: 's-50',     label: 'Horas con recargo 50%',     sub: 'L–V y Sáb 00:00–05:00 · Domingo' },
     { key: 'r60',     cls: 's-60',     label: 'Horas con recargo 60%',     sub: 'Turno Noche' },
-    { key: 'r150',    cls: 's-150',    label: 'Horas con recargo 150%',    sub: 'Feriados 150%' },
+    { key: 'r150',    cls: 's-150',    label: 'Horas con recargo 150%',    sub: 'Feriados 150% · Especial' },
     { key: 'r160',    cls: 's-160',    label: 'Horas con recargo 160%',    sub: 'Feriados 160% (12:00–23:59)' },
     { key: 'r200',    cls: 's-200',    label: 'Horas con recargo 200%',    sub: 'Feriado Irrenunciable' },
   ];
@@ -1227,7 +1268,7 @@ function exportarExcel() {
   const TIPO_LABEL = {
     weekday: 'Lunes – Viernes', saturday: 'Sábado', sunday: 'Domingo',
     night: 'Turno Noche', holiday150: 'Feriados 150%', holiday160: 'Feriados 160%',
-    holiday_mandatory: 'Feriado Irrenunciable',
+    holiday_mandatory: 'Feriado Irrenunciable', especial: 'Especial',
   };
 
   // ── Hoja 1: Detalle por día ──────────────────────────────────────────
