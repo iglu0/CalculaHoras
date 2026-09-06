@@ -20,6 +20,15 @@
     en fila fija, metadatos estructurados leídos directamente del Excel,
     convención "N/A" para campos que no aplican, y eliminado un servicio
     duplicado (512R5) presente en el documento original.
+
+  v4 — 6 Sep 2026
+    Eliminada la carga de tableros.js: este archivo nunca usa la variable
+    TABLEROS (solo DETALLES), por lo que ese <script> descargaba y
+    ejecutaba ~29 KB sin ningún uso. Verificado además que tableros.js y
+    detalles.js no tienen ninguna diferencia de horarios entre sí (0
+    discrepancias en 4 tableros × código/entrada/salida): ambos se
+    generan desde una misma lectura del Excel de origen en
+    generar_tableros.py, así que no hay riesgo de que diverjan.
   ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="es">
@@ -405,7 +414,6 @@ select option { background: var(--surf3); }
 
 </div>
 
-<script src="tableros.js"></script>
 <script src="detalles.js"></script>
 <script>
 const DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
