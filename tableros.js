@@ -17,6 +17,21 @@
 // CÓMO ACTUALIZAR: cierra la versión anterior con su "vigenciaHasta" y
 // agrega una nueva versión con los datos actualizados.
 // ═══════════════════════════════════════════════════════════════════════
+//
+// CHANGELOG
+// ═══════════════════════════════════════════════════════════════════════
+//   v1 — 6 Sep 2026
+//     Versión base con el formato de vigencia/metadatos mejorado descrito
+//     arriba (encabezados en fila fija, hoja de metadatos, convención
+//     "N/A" para "no aplica", sin filas basura/duplicados).
+//
+//   A partir de aquí: cada vez que se regenere este archivo desde un
+//   Excel nuevo, agregar una entrada con la fecha y qué cambió (ej. "se
+//   agregó la versión 2027-01-05 de saturday por actualización de
+//   convenio"). Si el cambio es sustancial, actualizar también el nombre
+//   del archivo con el número de versión (ver index.html/
+//   detalle-servicios.html para la convención de nombres ya en uso).
+// ═══════════════════════════════════════════════════════════════════════
 
 const TABLEROS = {
   monday_thursday: [

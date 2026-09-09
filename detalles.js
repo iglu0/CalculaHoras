@@ -18,6 +18,19 @@
 //
 // CÓMO ACTUALIZAR: igual que tableros.js.
 // ═══════════════════════════════════════════════════════════════════════
+//
+// CHANGELOG
+// ═══════════════════════════════════════════════════════════════════════
+//   v1 — 20 Ago 2026
+//     Regenerado desde archivos fuente mejorados (encabezados en fila
+//     fija, metadatos estructurados, convención "N/A", sin filas basura).
+//     Eliminado un servicio duplicado (512R5) presente en el documento
+//     original.
+//
+//   A partir de aquí: misma convención que tableros.js — agregar una
+//   entrada por cada regeneración desde un Excel nuevo, y versionar el
+//   nombre del archivo si el cambio es sustancial.
+// ═══════════════════════════════════════════════════════════════════════
 
 const DETALLES = {
   monday_thursday: [
