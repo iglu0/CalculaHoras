@@ -34,6 +34,14 @@
     Las columnas "Ruta" y "Colación" ahora muestran "-" en vez de "N/A"
     cuando el dato viene así desde detalles.js (campo literal "N/A" del
     Excel de origen).
+
+  v6 — 9 Sep 2026
+    "Consulta individual" ahora tiene un campo de fecha (por defecto,
+    hoy), igual que "Vista semanal". Antes siempre resolvía el tablero
+    vigente a partir de la fecha de hoy, sin importar qué período se
+    quisiera revisar: al agregarse una segunda versión de un tablero, una
+    consulta sobre una fecha pasada iba a devolver el tablero equivocado
+    sin ningún aviso.
   ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="es">
@@ -167,7 +175,7 @@ select option { background: var(--surf3); }
 .btn-sm { padding: .4rem .85rem; font-size: .78rem; border-radius: 6px; }
 
 /* ── CONSULTA INDIVIDUAL ── */
-.query-row { display: grid; grid-template-columns: 200px 1fr auto; gap: .8rem; align-items: end; }
+.query-row { display: grid; grid-template-columns: 200px 1fr 160px auto; gap: .8rem; align-items: end; }
 
 /* ── SERVICE DETAIL ── */
 .service-detail { margin-top: 1.2rem; display: none; }
@@ -344,7 +352,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Detalle de Servicios</span>
   <a class="topbar-back" href="index.html">← Volver a la calculadora</a>
-  <span class="topbar-version" id="appVersion">v5 · 6 Sep 2026</span>
+  <span class="topbar-version" id="appVersion">v6 · 9 Sep 2026</span>
 </div>
 
 <div class="wrapper">
@@ -370,6 +378,10 @@ select option { background: var(--surf3); }
           <label>Código de servicio</label>
           <input type="text" id="servicioIndividual" list="dl-individual" placeholder="Ej: 51101" autocomplete="off">
           <datalist id="dl-individual"></datalist>
+        </div>
+        <div class="field">
+          <label>Fecha</label>
+          <input type="date" id="fechaIndividual" onchange="populateIndividualDatalist()">
         </div>
         <button class="btn" onclick="consultarServicio()">Consultar →</button>
       </div>
@@ -458,7 +470,8 @@ function defaultBoardForDate(date) {
 // ── CONSULTA INDIVIDUAL ──────────────────────────────────────────────────
 function populateIndividualDatalist() {
   const boardKey = document.getElementById('tableroIndividual').value;
-  const version  = getActiveDetalleVersion(boardKey, null);
+  const fecha    = document.getElementById('fechaIndividual').value || null;
+  const version  = getActiveDetalleVersion(boardKey, fecha);
   const datalist = document.getElementById('dl-individual');
   if (!version) { datalist.innerHTML = ''; return; }
   datalist.innerHTML = version.servicios.map(s =>
@@ -525,6 +538,7 @@ function renderServiceDetailHTML(boardKey, codigo, dateForVersion) {
 function consultarServicio() {
   const boardKey = document.getElementById('tableroIndividual').value;
   const codigo   = document.getElementById('servicioIndividual').value.trim();
+  const fecha    = document.getElementById('fechaIndividual').value || null;
   const detailEl = document.getElementById('serviceDetail');
 
   if (!codigo) {
@@ -533,7 +547,7 @@ function consultarServicio() {
     return;
   }
 
-  detailEl.innerHTML = renderServiceDetailHTML(boardKey, codigo, null);
+  detailEl.innerHTML = renderServiceDetailHTML(boardKey, codigo, fecha);
   detailEl.style.display = 'block';
 }
 
@@ -677,8 +691,9 @@ function verDetalleSemana() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 (function init() {
-  populateIndividualDatalist();
   const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('fechaIndividual').value = today;
+  populateIndividualDatalist();
   document.getElementById('weekStart').value = today;
 })();
 </script>
