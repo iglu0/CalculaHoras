@@ -67,6 +67,25 @@
       (fijo)" en el resultado, aclarando que el horario ingresado es solo
       referencial y no afecta el total (siempre 06:40 a 150%).
 
+  v8 — 9 Sep 2026
+    Refactor interno: calcularTodo() y exportarExcel() acumulaban los
+    totales del período (horas por recargo, días trabajados) cada uno con
+    su propio bucle idéntico. Ahora ambos usan una única función
+    (acumularTotalesPeriodo). No cambia ningún cálculo — verificado con
+    un test comparando la acumulación vieja (las dos copias) contra la
+    nueva, con el mismo dataset de prueba: resultado idéntico en ambos
+    casos.
+
+  v9 — 9 Sep 2026
+    Se eliminó la lista FERIADOS_160 y su autoselección. Los 4 tipos de
+    feriado (150%, 160%, Irrenunciable, Especial) quedan ahora 100% de
+    selección manual, sin excepción — antes solo "Feriados 160%" se
+    autoseleccionaba para 3 fechas hardcodeadas (17/09, 24/12, 31/12),
+    lo cual era inconsistente con los otros 3 tipos y requería
+    mantenimiento manual año a año. No cambia ninguna regla de cálculo:
+    el resultado es idéntico siempre que se elija a mano el tipo
+    correcto para cada día feriado del período.
+
   Para agregar una nueva versión: incrementa el número, agrega la fecha
   y una línea breve de qué cambió, y actualiza el texto en <span id="appVersion">.
   ═══════════════════════════════════════════════════════════════════════
@@ -559,7 +578,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Calculadora de recargos por turno</span>
   <a class="topbar-link" href="detalle-servicios.html" target="_blank" rel="noopener">🔍 Detalle de Servicios</a>
-  <span class="topbar-version" id="appVersion">v7 · 8 Sep 2026</span>
+  <span class="topbar-version" id="appVersion">v9 · 9 Sep 2026</span>
 </div>
 
 <div class="wrapper">
@@ -726,9 +745,12 @@ const TIPO_OPTIONS = [
   { value: 'especial',          label: 'Especial' },
 ];
 
-// Feriados 160%: fechas específicas que reciben automáticamente este tipo de día
-// al generar el período (formato ISO YYYY-MM-DD)
-const FERIADOS_160 = ['2026-09-17', '2026-12-24', '2026-12-31'];
+// NOTA: los 4 tipos de feriado (150%, 160%, Irrenunciable, Especial) son de
+// selección 100% manual — ninguno se autoselecciona al generar el período.
+// Antes existía una lista FERIADOS_160 que autoseleccionaba "Feriados 160%"
+// para 3 fechas puntuales, pero eso requería mantenerla a mano cada año (y
+// era inconsistente: los otros 3 tipos de feriado nunca se autoseleccionaron).
+// Se sacó a propósito para que las 4 categorías se comporten igual.
 
 // ── TABLEROS DE SERVICIO ──────────────────────────────────────────────────
 // Cada tablero (monday_thursday, friday, saturday, sunday_holiday) puede tener
@@ -968,7 +990,7 @@ function buildPeriod() {
     const dow    = current.getDay();
     const date   = new Date(current);
     const dayKey = date.toISOString().slice(0,10);
-    const tipoDef = FERIADOS_160.includes(dayKey) ? 'holiday160' : defaultTipo(date);
+    const tipoDef = defaultTipo(date);
 
     // Clases para colorear fin de semana
     let rowCls = 'day-row';
@@ -1213,6 +1235,27 @@ function calcularFila(el) {
   row.dataset.total = totalMin;
 }
 
+// ── ACUMULAR TOTALES DEL PERÍODO (compartido entre resumen en pantalla y exportación) ──
+function acumularTotalesPeriodo(rows) {
+  const totales = { total: 0, r0: 0, r40: 0, r50: 0, r60: 0, r150: 0, r160: 0, r200: 0 };
+  let diasTrabajados = 0;
+  rows.forEach(row => {
+    if (row.dataset.acc) {
+      const acc = JSON.parse(row.dataset.acc);
+      const t   = parseInt(row.dataset.total || 0);
+      if (t > 0) {
+        diasTrabajados++;
+        totales.total += t;
+        for (const [pct, mins] of Object.entries(acc)) {
+          const k = 'r' + pct;
+          totales[k] = (totales[k] || 0) + mins;
+        }
+      }
+    }
+  });
+  return { totales, diasTrabajados };
+}
+
 // ── CALCULAR TODO EL PERÍODO ─────────────────────────────────────────────
 function calcularTodo() {
   const rows = document.querySelectorAll('.day-row');
@@ -1236,23 +1279,7 @@ function calcularTodo() {
   });
 
   // Acumular totales
-  const totals = { total: 0 };
-  let diasTrabajados = 0;
-
-  rows.forEach(row => {
-    if (row.dataset.acc) {
-      const acc = JSON.parse(row.dataset.acc);
-      const t   = parseInt(row.dataset.total || 0);
-      if (t > 0) {
-        diasTrabajados++;
-        totals.total = (totals.total || 0) + t;
-        for (const [pct, mins] of Object.entries(acc)) {
-          const k = 'r' + pct;
-          totals[k] = (totals[k] || 0) + mins;
-        }
-      }
-    }
-  });
+  const { totales: totals, diasTrabajados } = acumularTotalesPeriodo(rows);
 
   // Render resumen
   const grid = document.getElementById('summaryGrid');
@@ -1314,8 +1341,7 @@ function exportarExcel() {
      'Horas normales', 'Recargo 40%', 'Recargo 50%', 'Recargo 60%', 'Recargo 150%', 'Recargo 160%', 'Recargo 200%'],
   ];
 
-  const totals = { total: 0, r0: 0, r40: 0, r50: 0, r60: 0, r150: 0, r160: 0, r200: 0 };
-  let diasTrabajados = 0;
+  const { totales: totals, diasTrabajados } = acumularTotalesPeriodo(rows);
 
   rows.forEach(row => {
     const fechaRaw = row.dataset.date || '';
@@ -1343,7 +1369,6 @@ function exportarExcel() {
       const acc = JSON.parse(row.dataset.acc);
       const t   = parseInt(row.dataset.total || 0);
       if (t > 0) {
-        diasTrabajados++;
         totalH = parseFloat((t / 60).toFixed(2));
         normal = parseFloat(((acc[0]   || 0) / 60).toFixed(2));
         r40    = parseFloat(((acc[40]  || 0) / 60).toFixed(2));
@@ -1352,15 +1377,6 @@ function exportarExcel() {
         r150   = parseFloat(((acc[150] || 0) / 60).toFixed(2));
         r160   = parseFloat(((acc[160] || 0) / 60).toFixed(2));
         r200   = parseFloat(((acc[200] || 0) / 60).toFixed(2));
-
-        totals.total += t;
-        totals.r0    += (acc[0]   || 0);
-        totals.r40   += (acc[40]  || 0);
-        totals.r50   += (acc[50]  || 0);
-        totals.r60   += (acc[60]  || 0);
-        totals.r150  += (acc[150] || 0);
-        totals.r160  += (acc[160] || 0);
-        totals.r200  += (acc[200] || 0);
       }
     }
 
