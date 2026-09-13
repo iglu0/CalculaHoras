@@ -51,6 +51,11 @@
     Agregado botón de tema claro/oscuro en la barra superior (🌙/☀️),
     igual que en la calculadora. El tema se guarda en el navegador
     (localStorage) y se mantiene entre visitas.
+  v9 — 9 Sep 2026
+    Corregido contraste en modo claro: "Generar semana" y "Ver detalle
+    semana" tenían el texto en un color oscuro fijo (#0d1117), pensado
+    para el verde brillante del modo oscuro. Ahora usan la misma variable
+    de tema (--btn-accent-text) que index.html, blanca en modo claro.
   ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="es">
@@ -93,6 +98,7 @@
   --deepred:  #ef4444;
   --mono:     'IBM Plex Mono', monospace;
   --sans:     'Inter', sans-serif;
+  --btn-accent-text: #0d1117;
 }
 
 html[data-theme="light"] {
@@ -112,6 +118,7 @@ html[data-theme="light"] {
   --red:      #dc2626;
   --orange:   #c2540a;
   --deepred:  #b91c1c;
+  --btn-accent-text: #ffffff;
 }
 
 body {
@@ -416,7 +423,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Detalle de Servicios</span>
   <a class="topbar-back" href="index.html">← Volver a la calculadora</a>
-  <span class="topbar-version" id="appVersion">v8 · 9 Sep 2026</span>
+  <span class="topbar-version" id="appVersion">v9 · 9 Sep 2026</span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">🌙</button>
 </div>
 
@@ -468,7 +475,7 @@ select option { background: var(--surf3); }
           <label>Fecha de inicio de la semana</label>
           <input type="date" id="weekStart">
         </div>
-        <button class="btn" onclick="buildWeek()" style="background:var(--green);color:#0d1117">Generar semana →</button>
+        <button class="btn" onclick="buildWeek()" style="background:var(--green);color:var(--btn-accent-text)">Generar semana →</button>
       </div>
 
       <div id="weekConfigSection" style="display:none">
@@ -486,7 +493,7 @@ select option { background: var(--surf3); }
           <textarea id="pegadoServiciosSemana" placeholder="51101&#10;51102&#10;R&#10;52247&#10;51105&#10;R&#10;R"></textarea>
         </div>
 
-        <button class="btn btn-sm" onclick="verDetalleSemana()" style="background:var(--green);color:#0d1117">Ver detalle semana →</button>
+        <button class="btn btn-sm" onclick="verDetalleSemana()" style="background:var(--green);color:var(--btn-accent-text)">Ver detalle semana →</button>
         <div id="weekListadoResultado"></div>
       </div>
 

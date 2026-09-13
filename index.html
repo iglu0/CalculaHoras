@@ -99,6 +99,15 @@
     mantiene entre visitas. No afecta ningún cálculo, solo la paleta
     de colores.
 
+  v12 — 9 Sep 2026
+    Corregido contraste en modo claro: "Aplicar listado", "Calcular todo"
+    y "Exportar a Excel" tenían el texto en un color oscuro fijo
+    (#0d1117), pensado para contrastar contra el verde brillante del modo
+    oscuro. En modo claro el verde es más oscuro, así que ese mismo texto
+    quedaba con poco contraste. Ahora usan una variable de tema
+    (--btn-accent-text) que es blanca en modo claro y se mantiene oscura
+    en modo oscuro.
+
   Para agregar una nueva versión: incrementa el número, agrega la fecha
   y una línea breve de qué cambió, y actualiza el texto en <span id="appVersion">.
   ═══════════════════════════════════════════════════════════════════════
@@ -143,6 +152,7 @@
   --deepred:  #ef4444;
   --mono:     'IBM Plex Mono', monospace;
   --sans:     'Inter', sans-serif;
+  --btn-accent-text: #0d1117;
 }
 
 html[data-theme="light"] {
@@ -162,6 +172,7 @@ html[data-theme="light"] {
   --red:      #dc2626;
   --orange:   #c2540a;
   --deepred:  #b91c1c;
+  --btn-accent-text: #ffffff;
 }
 
 body {
@@ -644,7 +655,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Calculadora de recargos por turno</span>
   <a class="topbar-link" href="detalle-servicios.html" target="_blank" rel="noopener">🔍 Detalle de Servicios</a>
-  <span class="topbar-version" id="appVersion">v11 · 9 Sep 2026</span>
+  <span class="topbar-version" id="appVersion">v12 · 9 Sep 2026</span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">🌙</button>
 </div>
 
@@ -700,7 +711,7 @@ select option { background: var(--surf3); }
       <textarea id="pegadoServicios" placeholder="R&#10;R&#10;52203&#10;52247&#10;R&#10;..."></textarea>
       <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.6rem;">
         <button class="btn btn-sm" onclick="limpiarListado()" style="background:var(--surf3);color:var(--muted2);border:1px solid var(--border)">Limpiar</button>
-        <button class="btn btn-sm" onclick="aplicarListado()" style="background:var(--green);color:#0d1117">Aplicar listado →</button>
+        <button class="btn btn-sm" onclick="aplicarListado()" style="background:var(--green);color:var(--btn-accent-text)">Aplicar listado →</button>
       </div>
       <div id="listadoResultado"></div>
     </div>
@@ -717,7 +728,7 @@ select option { background: var(--surf3); }
     <div id="daysList"></div>
     <div class="actions-bar">
       <span class="actions-label">Ingresa los horarios de cada turno trabajado</span>
-      <button class="btn btn-sm" onclick="calcularTodo()" style="background:var(--green);color:#0d1117">Calcular todo →</button>
+      <button class="btn btn-sm" onclick="calcularTodo()" style="background:var(--green);color:var(--btn-accent-text)">Calcular todo →</button>
     </div>
   </div>
 
@@ -733,7 +744,7 @@ select option { background: var(--surf3); }
         💡 Estos valores en formato <strong>decimal con coma</strong> coinciden con el desglose de tu liquidación de sueldo.
       </div>
       <div style="margin-top:1rem;display:flex;justify-content:flex-end;">
-        <button class="btn" onclick="exportarExcel()" style="background:var(--green);color:#0d1117;display:flex;align-items:center;gap:.5rem;">
+        <button class="btn" onclick="exportarExcel()" style="background:var(--green);color:var(--btn-accent-text);display:flex;align-items:center;gap:.5rem;">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Exportar a Excel
         </button>
