@@ -42,6 +42,15 @@
     quisiera revisar: al agregarse una segunda versión de un tablero, una
     consulta sobre una fecha pasada iba a devolver el tablero equivocado
     sin ningún aviso.
+  v7 — 9 Sep 2026
+    Se agregó una advertencia visible (en Consulta individual y en Vista
+    semanal) cuando ninguna versión declarada del tablero cubre la fecha
+    consultada. Antes, en ese caso, se mostraba en silencio el tablero
+    más reciente disponible como si fuera el vigente, sin ningún aviso.
+  v8 — 9 Sep 2026
+    Agregado botón de tema claro/oscuro en la barra superior (🌙/☀️),
+    igual que en la calculadora. El tema se guarda en el navegador
+    (localStorage) y se mantiene entre visitas.
   ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="es">
@@ -49,6 +58,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Detalle de Servicios — CalculaHoras</title>
+<script>
+// Aplicar el tema guardado ANTES de pintar la página, para evitar el
+// parpadeo de un tema y luego el otro al cargar.
+(function() {
+  try {
+    if (localStorage.getItem('calculahoras-theme') === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  } catch (e) {}
+})();
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
 
@@ -75,12 +95,32 @@
   --sans:     'Inter', sans-serif;
 }
 
+html[data-theme="light"] {
+  --bg:       #f5f7fb;
+  --surf1:    #ffffff;
+  --surf2:    #eef1f7;
+  --surf3:    #e3e8f2;
+  --border:   #d8dee9;
+  --border2:  #c2cad9;
+  --text:     #1a2233;
+  --muted:    #94a0b8;
+  --muted2:   #56607a;
+  --blue:     #2563eb;
+  --green:    #15803d;
+  --yellow:   #b45309;
+  --purple:   #7c3aed;
+  --red:      #dc2626;
+  --orange:   #c2540a;
+  --deepred:  #b91c1c;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
   min-height: 100vh;
   padding: 0 0 5rem;
+  transition: background-color .2s ease, color .2s ease;
 }
 
 /* ── TOP BAR ── */
@@ -105,6 +145,20 @@ body {
   transition: border-color .15s, color .15s;
 }
 .topbar-back:hover { border-color: var(--blue); color: var(--blue); }
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted2);
+  font-size: .9rem;
+  line-height: 1;
+  padding: .35rem .6rem;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+  font-family: inherit;
+}
+.theme-toggle:hover { border-color: var(--blue); color: var(--blue); }
 .topbar-version {
   margin-left: auto;
   font-family: var(--mono);
@@ -258,6 +312,16 @@ select option { background: var(--surf3); }
   color: var(--muted2);
   margin-top: 1rem;
 }
+.vigencia-warning-box {
+  padding: .7rem 1rem;
+  background: rgba(248,113,113,.08);
+  border: 1px solid rgba(248,113,113,.3);
+  border-radius: 8px;
+  font-size: .8rem;
+  color: var(--muted2);
+  margin-bottom: .8rem;
+}
+.vigencia-warning-box strong { color: var(--red); }
 
 /* ── WEEK VIEW ── */
 .week-mode-toggle { display: flex; gap: .5rem; margin-bottom: 1rem; }
@@ -352,7 +416,8 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Detalle de Servicios</span>
   <a class="topbar-back" href="index.html">← Volver a la calculadora</a>
-  <span class="topbar-version" id="appVersion">v6 · 9 Sep 2026</span>
+  <span class="topbar-version" id="appVersion">v8 · 9 Sep 2026</span>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">🌙</button>
 </div>
 
 <div class="wrapper">
@@ -459,6 +524,15 @@ function getActiveDetalleVersion(boardKey, dateStr) {
   return versions.length ? versions[versions.length - 1] : null;
 }
 
+// Indica si la versión efectivamente cubre la fecha pedida, o si
+// getActiveDetalleVersion() tuvo que usar el resguardo (la más reciente
+// disponible) porque ninguna versión declara vigencia para esa fecha.
+function isFechaCubierta(version, dateStr) {
+  if (!version) return false;
+  const date = dateStr || new Date().toISOString().slice(0, 10);
+  return date >= version.vigenciaDesde && (!version.vigenciaHasta || date <= version.vigenciaHasta);
+}
+
 function defaultBoardForDate(date) {
   const dow = date.getDay();
   if (dow === 0) return 'sunday_holiday';
@@ -488,14 +562,24 @@ function renderServiceDetailHTML(boardKey, codigo, dateForVersion) {
   if (!version) {
     return `<div class="not-found-box">No hay datos cargados para el tablero <strong>${BOARD_LABELS[boardKey]}</strong>.</div>`;
   }
+
+  let warningHtml = '';
+  if (!isFechaCubierta(version, dateForVersion)) {
+    const fechaRef = dateForVersion || new Date().toISOString().slice(0, 10);
+    const rango = version.vigenciaHasta
+      ? `${version.vigenciaDesde} a ${version.vigenciaHasta}`
+      : `desde ${version.vigenciaDesde}`;
+    warningHtml = `<div class="vigencia-warning-box"><strong>⚠ Atención:</strong> ninguna versión declarada del tablero <strong>${BOARD_LABELS[boardKey]}</strong> cubre la fecha ${fechaRef}. Se muestra el documento <strong>${version.codigoDocumento}</strong> (vigente ${rango}) como resguardo — puede no ser el correcto para esa fecha.</div>`;
+  }
+
   const servicio = version.servicios.find(s => s.codigo === codigo);
   const legs = version.trenes[codigo];
 
   if (!servicio && !legs) {
-    return `<div class="not-found-box">El servicio <strong>${codigo}</strong> no se encontró en el tablero <strong>${BOARD_LABELS[boardKey]}</strong>.</div>`;
+    return warningHtml + `<div class="not-found-box">El servicio <strong>${codigo}</strong> no se encontró en el tablero <strong>${BOARD_LABELS[boardKey]}</strong>.</div>`;
   }
 
-  let html = '<div class="service-summary">';
+  let html = warningHtml + '<div class="service-summary">';
   html += '<div class="service-summary-top">';
   html += `<span class="service-code">${codigo}</span>`;
   if (servicio) html += `<span class="service-schedule">${servicio.entrada} → ${servicio.salida}</span>`;
@@ -689,8 +773,25 @@ function verDetalleSemana() {
   resultsCont.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ── TEMA CLARO/OSCURO ─────────────────────────────────────────────────────
+function updateThemeButton(theme) {
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'light' ? '☀️' : '🌙';
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  const next = current === 'light' ? 'dark' : 'light';
+  if (next === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('calculahoras-theme', next); } catch (e) {}
+  updateThemeButton(next);
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────
 (function init() {
+  updateThemeButton(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById('fechaIndividual').value = today;
   populateIndividualDatalist();

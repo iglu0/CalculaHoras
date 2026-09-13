@@ -86,6 +86,19 @@
     el resultado es idéntico siempre que se elija a mano el tipo
     correcto para cada día feriado del período.
 
+  v10 — 9 Sep 2026
+    "Tableros vigentes" ahora revisa día por día todo el período generado
+    y muestra una advertencia si alguna fecha queda fuera de toda
+    vigencia declarada (antes, en ese caso, se usaba en silencio el
+    tablero más reciente disponible como si fuera el correcto, sin avisar
+    que en realidad no está declarado vigente para esas fechas).
+
+  v11 — 9 Sep 2026
+    Agregado botón de tema claro/oscuro en la barra superior (🌙/☀️).
+    El tema elegido se guarda en el navegador (localStorage) y se
+    mantiene entre visitas. No afecta ningún cálculo, solo la paleta
+    de colores.
+
   Para agregar una nueva versión: incrementa el número, agrega la fecha
   y una línea breve de qué cambió, y actualiza el texto en <span id="appVersion">.
   ═══════════════════════════════════════════════════════════════════════
@@ -95,6 +108,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CalculaHoras — Recargos por Turno</title>
+<script>
+// Aplicar el tema guardado ANTES de pintar la página, para evitar el
+// parpadeo de un tema y luego el otro al cargar.
+(function() {
+  try {
+    if (localStorage.getItem('calculahoras-theme') === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  } catch (e) {}
+})();
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
 
@@ -121,11 +145,31 @@
   --sans:     'Inter', sans-serif;
 }
 
+html[data-theme="light"] {
+  --bg:       #f5f7fb;
+  --surf1:    #ffffff;
+  --surf2:    #eef1f7;
+  --surf3:    #e3e8f2;
+  --border:   #d8dee9;
+  --border2:  #c2cad9;
+  --text:     #1a2233;
+  --muted:    #94a0b8;
+  --muted2:   #56607a;
+  --blue:     #2563eb;
+  --green:    #15803d;
+  --yellow:   #b45309;
+  --purple:   #7c3aed;
+  --red:      #dc2626;
+  --orange:   #c2540a;
+  --deepred:  #b91c1c;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
   min-height: 100vh;
+  transition: background-color .2s ease, color .2s ease;
   padding: 0 0 5rem;
 }
 
@@ -170,6 +214,20 @@ body {
   white-space: nowrap;
 }
 .topbar-link:hover { border-color: var(--blue); color: var(--blue); }
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted2);
+  font-size: .9rem;
+  line-height: 1;
+  padding: .35rem .6rem;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+  font-family: inherit;
+}
+.theme-toggle:hover { border-color: var(--blue); color: var(--blue); }
 
 /* ── LAYOUT ── */
 .wrapper {
@@ -289,6 +347,14 @@ select option { background: var(--surf3); }
   font-size: .72rem;
   color: var(--blue);
 }
+.vigencia-warning {
+  padding: .6rem .8rem;
+  font-size: .76rem;
+  background: rgba(248,113,113,.08);
+  border-top: 1px solid rgba(248,113,113,.3);
+  color: var(--muted2);
+}
+.vigencia-warning strong { color: var(--red); }
 
 .btn {
   padding: .55rem 1.2rem;
@@ -578,7 +644,8 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Calculadora de recargos por turno</span>
   <a class="topbar-link" href="detalle-servicios.html" target="_blank" rel="noopener">🔍 Detalle de Servicios</a>
-  <span class="topbar-version" id="appVersion">v9 · 9 Sep 2026</span>
+  <span class="topbar-version" id="appVersion">v11 · 9 Sep 2026</span>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">🌙</button>
 </div>
 
 <div class="wrapper">
@@ -778,13 +845,43 @@ const BOARD_LABELS = {
   sunday_holiday: 'Domingo y Feriados',
 };
 
+// Recorre día por día el período y detecta, para el tablero que
+// correspondería por defecto a cada fecha (según el día real de la semana),
+// si NINGUNA versión declarada cubre esa fecha. Devuelve un objeto
+// { boardKey: { desde, hasta } } con el primer/último día afectado por tablero.
+function checkVigenciaPeriodo(start, end) {
+  const problemas = {};
+  const current = new Date(start);
+  while (current <= end) {
+    const dateStr = current.toISOString().slice(0, 10);
+    const dow = current.getDay();
+    let boardKey;
+    if (dow === 5) boardKey = 'friday';
+    else if (dow === 6) boardKey = 'saturday';
+    else if (dow === 0) boardKey = 'sunday_holiday';
+    else boardKey = 'monday_thursday';
+
+    const versions = TABLEROS[boardKey] || [];
+    const cubierto = versions.some(v => dateStr >= v.vigenciaDesde && (!v.vigenciaHasta || dateStr <= v.vigenciaHasta));
+    if (!cubierto) {
+      if (!problemas[boardKey]) problemas[boardKey] = { desde: dateStr, hasta: dateStr };
+      else problemas[boardKey].hasta = dateStr;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return problemas;
+}
+
 // Muestra el panel con los códigos de documento de los 4 tableros vigentes
 // para la fecha indicada (se usa el último día del período — 15 del mes
-// de liquidación — como referencia)
-function renderTablerosVigentes(dateStr) {
+// de liquidación — como referencia), y advierte si alguna fecha del período
+// queda fuera de toda vigencia declarada (en cuyo caso el tablero mostrado
+// es un resguardo, no necesariamente el correcto para esa fecha).
+function renderTablerosVigentes(start, end) {
   const cont = document.getElementById('tablerosVigentes');
   if (!cont) return;
 
+  const dateStr = end.toISOString().slice(0, 10);
   const boardKeys = ['monday_thursday', 'friday', 'saturday', 'sunday_holiday'];
   let html = '<div class="tableros-vigentes-head">Tableros vigentes para este período</div>';
 
@@ -797,6 +894,19 @@ function renderTablerosVigentes(dateStr) {
         <span class="tablero-vigente-codigo">${codigo}</span>
       </div>`;
   });
+
+  const problemas = checkVigenciaPeriodo(start, end);
+  const keys = Object.keys(problemas);
+  if (keys.length) {
+    const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    html += `<div class="vigencia-warning"><strong>⚠ Atención:</strong> ninguna versión declarada cubre estas fechas — se está usando el tablero más reciente como resguardo, que puede no ser el correcto para esos días:<br>`;
+    html += keys.map(k => {
+      const r = problemas[k];
+      const rango = r.desde === r.hasta ? fmt(r.desde) : `${fmt(r.desde)} – ${fmt(r.hasta)}`;
+      return `${BOARD_LABELS[k]}: ${rango}`;
+    }).join('<br>');
+    html += `</div>`;
+  }
 
   cont.innerHTML = html;
 }
@@ -941,8 +1051,25 @@ function renderDayResult(acc, totalMin, tipo1) {
   return html;
 }
 
+// ── TEMA CLARO/OSCURO ─────────────────────────────────────────────────────
+function updateThemeButton(theme) {
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'light' ? '☀️' : '🌙';
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  const next = current === 'light' ? 'dark' : 'light';
+  if (next === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('calculahoras-theme', next); } catch (e) {}
+  updateThemeButton(next);
+}
+
 // ── INICIALIZAR AÑO ──────────────────────────────────────────────────────
 (function initYear() {
+  updateThemeButton(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
   const sel = document.getElementById('yearFrom');
   const now = new Date();
   const cur = now.getFullYear();
@@ -979,7 +1106,7 @@ function buildPeriod() {
     `15 ${MESES[month]} ${year}`;
   document.getElementById('periodDisplay').style.display = 'block';
 
-  renderTablerosVigentes(end.toISOString().slice(0, 10));
+  renderTablerosVigentes(start, end);
 
   // Generar días
   const list = document.getElementById('daysList');
