@@ -56,6 +56,12 @@
     semana" tenían el texto en un color oscuro fijo (#0d1117), pensado
     para el verde brillante del modo oscuro. Ahora usan la misma variable
     de tema (--btn-accent-text) que index.html, blanca en modo claro.
+
+  v10 — 30 Sep 2026
+    Se eliminó el campo de fecha de "Consulta individual" (agregado en
+    v6). Vuelve a resolver siempre el tablero vigente a la fecha de hoy.
+    "Vista semanal" mantiene su propia fecha de inicio, sin cambios.
+    Se mantiene la advertencia de vigencia de v7.
   ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="es">
@@ -236,7 +242,7 @@ select option { background: var(--surf3); }
 .btn-sm { padding: .4rem .85rem; font-size: .78rem; border-radius: 6px; }
 
 /* ── CONSULTA INDIVIDUAL ── */
-.query-row { display: grid; grid-template-columns: 200px 1fr 160px auto; gap: .8rem; align-items: end; }
+.query-row { display: grid; grid-template-columns: 200px 1fr auto; gap: .8rem; align-items: end; }
 
 /* ── SERVICE DETAIL ── */
 .service-detail { margin-top: 1.2rem; display: none; }
@@ -423,7 +429,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Detalle de Servicios</span>
   <a class="topbar-back" href="index.html">← Volver a la calculadora</a>
-  <span class="topbar-version" id="appVersion">v9 · 9 Sep 2026</span>
+  <span class="topbar-version" id="appVersion">v10 · 30 Sep 2026</span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">🌙</button>
 </div>
 
@@ -450,10 +456,6 @@ select option { background: var(--surf3); }
           <label>Código de servicio</label>
           <input type="text" id="servicioIndividual" list="dl-individual" placeholder="Ej: 51101" autocomplete="off">
           <datalist id="dl-individual"></datalist>
-        </div>
-        <div class="field">
-          <label>Fecha</label>
-          <input type="date" id="fechaIndividual" onchange="populateIndividualDatalist()">
         </div>
         <button class="btn" onclick="consultarServicio()">Consultar →</button>
       </div>
@@ -551,8 +553,7 @@ function defaultBoardForDate(date) {
 // ── CONSULTA INDIVIDUAL ──────────────────────────────────────────────────
 function populateIndividualDatalist() {
   const boardKey = document.getElementById('tableroIndividual').value;
-  const fecha    = document.getElementById('fechaIndividual').value || null;
-  const version  = getActiveDetalleVersion(boardKey, fecha);
+  const version  = getActiveDetalleVersion(boardKey, null);
   const datalist = document.getElementById('dl-individual');
   if (!version) { datalist.innerHTML = ''; return; }
   datalist.innerHTML = version.servicios.map(s =>
@@ -629,7 +630,6 @@ function renderServiceDetailHTML(boardKey, codigo, dateForVersion) {
 function consultarServicio() {
   const boardKey = document.getElementById('tableroIndividual').value;
   const codigo   = document.getElementById('servicioIndividual').value.trim();
-  const fecha    = document.getElementById('fechaIndividual').value || null;
   const detailEl = document.getElementById('serviceDetail');
 
   if (!codigo) {
@@ -638,7 +638,7 @@ function consultarServicio() {
     return;
   }
 
-  detailEl.innerHTML = renderServiceDetailHTML(boardKey, codigo, fecha);
+  detailEl.innerHTML = renderServiceDetailHTML(boardKey, codigo, null);
   detailEl.style.display = 'block';
 }
 
@@ -800,7 +800,6 @@ function toggleTheme() {
   updateThemeButton(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
 
   const today = new Date().toISOString().slice(0, 10);
-  document.getElementById('fechaIndividual').value = today;
   populateIndividualDatalist();
   document.getElementById('weekStart').value = today;
 })();
