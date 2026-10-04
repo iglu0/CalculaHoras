@@ -62,6 +62,18 @@
     v6). Vuelve a resolver siempre el tablero vigente a la fecha de hoy.
     "Vista semanal" mantiene su propia fecha de inicio, sin cambios.
     Se mantiene la advertencia de vigencia de v7.
+
+  v11 — 4 Oct 2026
+    Nueva sección "Consultar mis servicios" (primera tarjeta de la página).
+    Lee la lista personal mis-servicios.js (nuevo archivo, se edita a mano,
+    una línea por servicio: "servicio, fecha, documento", con documento
+    obligatorio: DL, DV, DS o DF) y muestra el detalle de los servicios
+    asignados en un rango de fechas (con atajos Próximos 7 días, Período en
+    curso 16 al 15 y Todo). Cada día se resuelve con el documento indicado y
+    la versión de tablero vigente en esa fecha. Avisa líneas ilegibles,
+    códigos que no existen en el documento indicado, documentos que no
+    coinciden con el día de la semana y días con más de un servicio.
+    Admite "R, fecha" para marcar descansos y comentarios con "#".
   ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="es">
@@ -336,6 +348,30 @@ select option { background: var(--surf3); }
 }
 .vigencia-warning-box strong { color: var(--red); }
 
+/* ── MIS SERVICIOS ── */
+.mis-range { display: grid; grid-template-columns: 1fr 1fr auto; gap: .8rem; align-items: end; }
+.mis-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .9rem; }
+.mis-toolbar .week-mode-btn { flex: 0 1 auto; }
+.mis-summary { font-size: .8rem; color: var(--muted2); margin-top: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; }
+.mis-summary .week-mode-btn { flex: 0 1 auto; padding: .25rem .6rem; font-size: .72rem; }
+.mis-note { background: var(--surf2); border: 1px solid var(--border); border-radius: 8px; padding: .7rem .9rem; font-size: .8rem; line-height: 1.5; color: var(--muted2); margin-top: .8rem; }
+.mis-list { display: flex; flex-direction: column; gap: .6rem; margin-top: .8rem; }
+.mis-day { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surf1); }
+.mis-day.is-today { border-color: var(--blue); }
+.mis-day > summary { list-style: none; cursor: pointer; padding: .7rem .9rem; background: var(--surf2); }
+.mis-day > summary::-webkit-details-marker { display: none; }
+.mis-main { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; }
+.mis-caret { color: var(--muted2); font-size: .7rem; transition: transform .15s; }
+.mis-day[open] .mis-caret { transform: rotate(90deg); }
+.mis-date { font-family: var(--mono); font-size: .82rem; color: var(--text); }
+.mis-code { font-family: var(--mono); font-size: .9rem; font-weight: 600; color: var(--blue); }
+.mis-time { font-family: var(--mono); font-size: .8rem; color: var(--muted2); }
+.mis-today { font-size: .65rem; font-weight: 600; letter-spacing: .05em; color: #fff; background: var(--blue); border-radius: 4px; padding: .1rem .4rem; }
+.mis-warn { margin-top: .35rem; font-size: .74rem; color: var(--orange); }
+.mis-warn.bad { color: var(--red); }
+.mis-body { padding: 1rem; }
+.mis-rest { padding: .7rem .9rem; background: var(--surf2); }
+
 /* ── WEEK VIEW ── */
 .week-mode-toggle { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .week-mode-btn {
@@ -415,6 +451,7 @@ select option { background: var(--surf3); }
 
 @media (max-width: 700px) {
   .query-row { grid-template-columns: 1fr; }
+  .mis-range { grid-template-columns: 1fr; }
   .week-start-row { grid-template-columns: 1fr; }
   .week-day-row { grid-template-columns: 1fr; gap: .3rem; }
   .legs-table { font-size: .74rem; }
@@ -429,11 +466,39 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Detalle de Servicios</span>
   <a class="topbar-back" href="index.html">← Volver a la calculadora</a>
-  <span class="topbar-version" id="appVersion">v10 · 30 Sep 2026</span>
+  <span class="topbar-version" id="appVersion">v11 · 4 Oct 2026</span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">🌙</button>
 </div>
 
 <div class="wrapper">
+
+  <!-- MIS SERVICIOS -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon" style="background:var(--purple)"></div>
+      <span class="card-head-title">Consultar mis servicios</span>
+    </div>
+    <div class="card-body">
+      <div class="mis-range">
+        <div class="field">
+          <label>Desde</label>
+          <input type="date" id="misDesde">
+        </div>
+        <div class="field">
+          <label>Hasta</label>
+          <input type="date" id="misHasta">
+        </div>
+        <button class="btn" onclick="consultarMisServicios()">Consultar →</button>
+      </div>
+      <div class="mis-toolbar">
+        <button type="button" class="week-mode-btn" onclick="misRango('7')">Próximos 7 días</button>
+        <button type="button" class="week-mode-btn" onclick="misRango('periodo')">Período en curso (16 al 15)</button>
+        <button type="button" class="week-mode-btn" onclick="misRango('todo')">Todo</button>
+      </div>
+      <div id="misStatus"></div>
+      <div class="mis-list" id="misResultados"></div>
+    </div>
+  </div>
 
   <!-- CONSULTA INDIVIDUAL -->
   <div class="card">
@@ -506,6 +571,7 @@ select option { background: var(--surf3); }
 </div>
 
 <script src="detalles.js"></script>
+<script src="mis-servicios.js"></script>
 <script>
 const DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
@@ -780,6 +846,174 @@ function verDetalleSemana() {
   resultsCont.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ── MIS SERVICIOS ────────────────────────────────────────────────────────
+// Lee la lista MIS_SERVICIOS (archivo mis-servicios.js, que editas a mano) y
+// muestra el detalle de los servicios asignados dentro de un rango de fechas.
+const DOC_TO_BOARD = { DL: 'monday_thursday', DV: 'friday', DS: 'saturday', DF: 'sunday_holiday' };
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function pad2(n) { return String(n).padStart(2, '0'); }
+// Fechas en hora LOCAL (no UTC), para que "hoy" sea correcto también de noche
+function isoDeFecha(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function hoyLocal() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate(), 12, 0, 0); }
+function fechaDesdeISO(iso) { return new Date(iso + 'T12:00:00'); }
+function fmtFechaISO(iso) { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; }
+
+// Acepta DD-MM-AAAA (o con "/") y también AAAA-MM-DD. Devuelve AAAA-MM-DD o null.
+function parseFechaMis(txt) {
+  let m, y, mo, d;
+  if ((m = /^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/.exec(txt))) { d = +m[1]; mo = +m[2]; y = +m[3]; }
+  else if ((m = /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/.exec(txt))) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else return null;
+  const dt = new Date(y, mo - 1, d, 12, 0, 0);
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+  return `${y}-${pad2(mo)}-${pad2(d)}`;
+}
+
+// Formato por línea: "servicio, fecha, documento" (documento = DL, DV, DS o DF).
+// "R, fecha" marca un día de descanso. "#" inicia un comentario.
+function parseMisServicios(texto) {
+  const entries = [], errors = [];
+  String(texto).split(/\r?\n/).forEach(raw => {
+    const line = raw.split('#')[0].trim();
+    if (!line) return;
+    const p = line.split(/[,;\t]/).map(x => x.trim());
+
+    if (p[0].toUpperCase() === 'R' && (p.length === 2 || p.length === 3)) {
+      const f = parseFechaMis(p[1]);
+      if (!f) { errors.push({ texto: line, motivo: 'fecha inválida (usa DD-MM-AAAA)' }); return; }
+      entries.push({ rest: true, fecha: f });
+      return;
+    }
+    if (p.length !== 3) { errors.push({ texto: line, motivo: 'se esperaban 3 campos: servicio, fecha, documento' }); return; }
+
+    const codigo = p[0].toUpperCase();
+    const f = parseFechaMis(p[1]);
+    const doc = p[2].toUpperCase();
+    if (!codigo) { errors.push({ texto: line, motivo: 'falta el código de servicio' }); return; }
+    if (!f) { errors.push({ texto: line, motivo: 'fecha inválida (usa DD-MM-AAAA)' }); return; }
+    if (!DOC_TO_BOARD[doc]) { errors.push({ texto: line, motivo: `documento "${p[2]}" no reconocido (usa DL, DV, DS o DF)` }); return; }
+    entries.push({ rest: false, codigo, fecha: f, doc, boardKey: DOC_TO_BOARD[doc] });
+  });
+  return { entries, errors };
+}
+
+// Documento que corresponde por defecto según el día de la semana
+function docEsperado(iso) {
+  const dow = fechaDesdeISO(iso).getDay();
+  return dow === 0 ? 'DF' : dow === 6 ? 'DS' : dow === 5 ? 'DV' : 'DL';
+}
+
+// Arma el HTML (resumen + lista) para el rango [desde, hasta] (AAAA-MM-DD)
+function buildMisResultados(parsed, desde, hasta, hoyISO) {
+  let status = '';
+  if (parsed.errors.length) {
+    status += `<div class="listado-msg error"><strong>⚠ ${parsed.errors.length} línea(s) de mis-servicios.js no se pudieron leer</strong> y se ignoraron:<br>` +
+      parsed.errors.map(e => `«${escHtml(e.texto)}» — ${e.motivo}`).join('<br>') + `</div>`;
+  }
+  if (!parsed.entries.length) {
+    status += `<div class="mis-note">La lista está vacía. Agrega líneas en mis-servicios.js con el formato <strong>servicio, fecha, documento</strong>.</div>`;
+    return { status, list: '' };
+  }
+
+  const enRango = parsed.entries
+    .filter(e => e.fecha >= desde && e.fecha <= hasta)
+    .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
+  const porDia = {};
+  parsed.entries.forEach(e => { if (!e.rest) porDia[e.fecha] = (porDia[e.fecha] || 0) + 1; });
+
+  const nServ = enRango.filter(e => !e.rest).length;
+  const nRest = enRango.length - nServ;
+  status += `<div class="mis-summary"><span><strong>${nServ}</strong> servicio(s)${nRest ? ` y ${nRest} descanso(s)` : ''} entre ${fmtFechaISO(desde)} y ${fmtFechaISO(hasta)} · ${parsed.entries.length} registro(s) en el archivo</span>` +
+    (nServ ? `<button type="button" class="week-mode-btn" onclick="expandirMis(true)">Expandir todo</button><button type="button" class="week-mode-btn" onclick="expandirMis(false)">Contraer todo</button>` : '') +
+    `</div>`;
+
+  if (!enRango.length) {
+    return { status: status + `<div class="mis-note">No hay servicios registrados en ese rango de fechas.</div>`, list: '' };
+  }
+
+  const list = enRango.map(e => {
+    const d = fechaDesdeISO(e.fecha);
+    const diaNombre = DIAS_SEMANA[d.getDay()];
+    const fechaTxt = `${fmtFechaISO(e.fecha)} · ${diaNombre.slice(0, 3)}`;
+    const esHoy = e.fecha === hoyISO;
+    const hoyTag = esHoy ? '<span class="mis-today">HOY</span>' : '';
+
+    if (e.rest) {
+      return `<div class="mis-day mis-rest${esHoy ? ' is-today' : ''}"><div class="mis-main"><span class="mis-date">${fechaTxt}</span>${hoyTag}<span class="mis-time">Descanso</span></div></div>`;
+    }
+
+    const version = getActiveDetalleVersion(e.boardKey, e.fecha);
+    const serv = version ? version.servicios.find(s => s.codigo === e.codigo) : null;
+    const avisos = [];
+    if (!serv) avisos.push({ bad: true, txt: `El servicio ${e.codigo} no existe en ${e.doc} (${BOARD_LABELS[e.boardKey]}) para esta fecha.` });
+    const esperado = docEsperado(e.fecha);
+    if (e.doc !== esperado && e.doc !== 'DF') avisos.push({ bad: false, txt: `El documento ${e.doc} no coincide con el día (${diaNombre} → ${esperado}). Revisa si es correcto.` });
+    if (porDia[e.fecha] > 1) avisos.push({ bad: false, txt: `Hay ${porDia[e.fecha]} servicios registrados este día.` });
+
+    const horario = serv ? `${serv.entrada} – ${serv.salida}` : '—';
+    return `<details class="mis-day${esHoy ? ' is-today' : ''}">
+      <summary>
+        <div class="mis-main">
+          <span class="mis-caret">▶</span>
+          <span class="mis-date">${fechaTxt}</span>${hoyTag}
+          <span class="mis-code">${escHtml(e.codigo)}</span>
+          <span class="mis-time">${horario}</span>
+          <span class="service-board-tag">${e.doc}</span>
+        </div>
+        ${avisos.map(a => `<div class="mis-warn${a.bad ? ' bad' : ''}">⚠ ${escHtml(a.txt)}</div>`).join('')}
+      </summary>
+      <div class="mis-body">${renderServiceDetailHTML(e.boardKey, e.codigo, e.fecha)}</div>
+    </details>`;
+  }).join('');
+
+  return { status, list };
+}
+
+function consultarMisServicios() {
+  const desde = document.getElementById('misDesde').value;
+  const hasta = document.getElementById('misHasta').value;
+  const statusEl = document.getElementById('misStatus');
+  const listEl = document.getElementById('misResultados');
+  listEl.innerHTML = '';
+
+  if (typeof MIS_SERVICIOS === 'undefined') {
+    statusEl.innerHTML = `<div class="mis-note">No se pudo leer la lista de servicios. Sube el archivo <strong>mis-servicios.js</strong> al mismo repositorio (usa la plantilla mis-servicios_v1.js y renómbrala), o revisa que no tenga errores de sintaxis: la lista va entre comillas invertidas y termina con punto y coma.</div>`;
+    return;
+  }
+  if (!desde || !hasta) { statusEl.innerHTML = '<div class="listado-msg error">Elige las dos fechas (desde y hasta).</div>'; return; }
+  if (desde > hasta) { statusEl.innerHTML = '<div class="listado-msg error">La fecha "desde" no puede ser posterior a "hasta".</div>'; return; }
+
+  const out = buildMisResultados(parseMisServicios(MIS_SERVICIOS), desde, hasta, isoDeFecha(hoyLocal()));
+  statusEl.innerHTML = out.status;
+  listEl.innerHTML = out.list;
+}
+
+// Atajos de rango: '7' = hoy + 6 días, 'periodo' = período de pago en curso (16 al 15), 'todo'
+function misRango(tipo) {
+  const h = hoyLocal();
+  let ini = h, fin = h;
+  if (tipo === '7') {
+    fin = new Date(h.getFullYear(), h.getMonth(), h.getDate() + 6, 12, 0, 0);
+  } else if (tipo === 'periodo') {
+    const y = h.getFullYear(), m = h.getMonth();
+    if (h.getDate() <= 15) { ini = new Date(y, m - 1, 16, 12, 0, 0); fin = new Date(y, m, 15, 12, 0, 0); }
+    else { ini = new Date(y, m, 16, 12, 0, 0); fin = new Date(y, m + 1, 15, 12, 0, 0); }
+  } else if (tipo === 'todo' && typeof MIS_SERVICIOS !== 'undefined') {
+    const fechas = parseMisServicios(MIS_SERVICIOS).entries.map(e => e.fecha).sort();
+    if (fechas.length) { ini = fechaDesdeISO(fechas[0]); fin = fechaDesdeISO(fechas[fechas.length - 1]); }
+  }
+  document.getElementById('misDesde').value = isoDeFecha(ini);
+  document.getElementById('misHasta').value = isoDeFecha(fin);
+  consultarMisServicios();
+}
+
+function expandirMis(abrir) {
+  document.querySelectorAll('#misResultados details').forEach(d => { d.open = abrir; });
+}
+
 // ── TEMA CLARO/OSCURO ─────────────────────────────────────────────────────
 function updateThemeButton(theme) {
   const btn = document.getElementById('themeToggle');
@@ -797,6 +1031,7 @@ function toggleTheme() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 (function init() {
+  misRango('7');
   updateThemeButton(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
 
   const today = new Date().toISOString().slice(0, 10);
