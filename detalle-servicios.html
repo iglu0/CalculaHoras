@@ -74,6 +74,11 @@
     códigos que no existen en el documento indicado, documentos que no
     coinciden con el día de la semana y días con más de un servicio.
     Admite "R, fecha" para marcar descansos y comentarios con "#".
+
+  v12 — 4 Oct 2026
+    En "Consultar mis servicios", el encabezado de cada día muestra el
+    nombre completo del día (Lunes, Martes, ...) en vez de las primeras
+    3 letras (Lun, Mar, ...).
   ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="es">
@@ -466,7 +471,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Detalle de Servicios</span>
   <a class="topbar-back" href="index.html">← Volver a la calculadora</a>
-  <span class="topbar-version" id="appVersion">v11 · 4 Oct 2026</span>
+  <span class="topbar-version" id="appVersion">v12 · 4 Oct 2026</span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">🌙</button>
 </div>
 
@@ -937,7 +942,7 @@ function buildMisResultados(parsed, desde, hasta, hoyISO) {
   const list = enRango.map(e => {
     const d = fechaDesdeISO(e.fecha);
     const diaNombre = DIAS_SEMANA[d.getDay()];
-    const fechaTxt = `${fmtFechaISO(e.fecha)} · ${diaNombre.slice(0, 3)}`;
+    const fechaTxt = `${fmtFechaISO(e.fecha)} · ${diaNombre}`;
     const esHoy = e.fecha === hoyISO;
     const hoyTag = esHoy ? '<span class="mis-today">HOY</span>' : '';
 
