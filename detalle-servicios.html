@@ -79,6 +79,13 @@
     En "Consultar mis servicios", el encabezado de cada día muestra el
     nombre completo del día (Lunes, Martes, ...) en vez de las primeras
     3 letras (Lun, Mar, ...).
+
+  v13 — 15 Oct 2026
+    Se agrega el dato "Duración Total" (campo duracion de detalles_v2.js)
+    en el resumen de cada servicio (consulta individual, vista semanal y
+    Consultar mis servicios) y en el encabezado de cada día de
+    "Consultar mis servicios". Requiere detalles.js v2 o posterior; si el
+    dato no existe, simplemente no se muestra.
   ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="es">
@@ -279,6 +286,8 @@ select option { background: var(--surf3); }
   margin-bottom: .5rem;
 }
 .service-code { font-family: var(--mono); font-size: 1.3rem; font-weight: 600; color: var(--blue); }
+.service-duracion { font-family: var(--mono); font-size: .85rem; color: var(--muted2); }
+.service-duracion strong { color: var(--text, inherit); }
 .service-schedule { font-family: var(--mono); font-size: .9rem; color: var(--green); }
 .service-board-tag {
   font-family: var(--mono);
@@ -471,7 +480,7 @@ select option { background: var(--surf3); }
   <span class="topbar-sep">·</span>
   <span class="topbar-sub">Detalle de Servicios</span>
   <a class="topbar-back" href="index.html">← Volver a la calculadora</a>
-  <span class="topbar-version" id="appVersion">v12 · 4 Oct 2026</span>
+  <span class="topbar-version" id="appVersion">v13 · 15 Oct 2026</span>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">🌙</button>
 </div>
 
@@ -662,6 +671,7 @@ function renderServiceDetailHTML(boardKey, codigo, dateForVersion) {
   html += '<div class="service-summary-top">';
   html += `<span class="service-code">${codigo}</span>`;
   if (servicio) html += `<span class="service-schedule">${servicio.entrada} → ${servicio.salida}</span>`;
+  if (servicio && servicio.duracion) html += `<span class="service-duracion">Duración total: <strong>${servicio.duracion}</strong></span>`;
   html += `<span class="service-board-tag">${BOARD_LABELS[boardKey]}</span>`;
   html += '</div>';
   if (servicio && servicio.detalle) html += `<div class="service-detalle-text">${servicio.detalle}</div>`;
@@ -966,6 +976,7 @@ function buildMisResultados(parsed, desde, hasta, hoyISO) {
           <span class="mis-date">${fechaTxt}</span>${hoyTag}
           <span class="mis-code">${escHtml(e.codigo)}</span>
           <span class="mis-time">${horario}</span>
+          ${serv && serv.duracion ? `<span class="mis-time">· ${serv.duracion} h</span>` : ''}
           <span class="service-board-tag">${e.doc}</span>
         </div>
         ${avisos.map(a => `<div class="mis-warn${a.bad ? ' bad' : ''}">⚠ ${escHtml(a.txt)}</div>`).join('')}
